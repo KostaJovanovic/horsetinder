@@ -1,0 +1,11 @@
+node_modules/
+__pycache__/
+
+# Signed APKs built by save.bat
+dist/
+
+# The release signing key and its password. The keystore itself lives in
+# %USERPROFILE%\.keystores\, outside the repo; these catch a stray copy.
+android/keystore.properties
+*.jks
+*.keystore

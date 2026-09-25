@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="18 18 72 72" width="1024" height="1024"><defs><radialGradient id="g" cx="0.3" cy="0.25" r="0.9"><stop offset="0" stop-color="#9A5530"/><stop offset="1" stop-color="#7A3E1D"/></radialGradient></defs><rect width="108" height="108" fill="url(#g)"/>
+  <g transform="translate(17.4 19.6) scale(0.30)">
+    <path d="M92 72 C70 100 50 150 40 240 L22 240 C30 170 52 108 88 62 Z" fill="#F6E7C1"/>
+    <path d="M40 240 C45 190 55 150 75 115 C80 100 85 85 92 72 L86 38 L104 63 L112 34 L119 68 C140 78 165 105 190 140 C202 156 204 172 192 180 C180 188 162 184 150 176 C138 168 128 162 122 168 C116 190 140 215 150 240 Z" fill="#E0A13C"/>
+    <!-- neck continues off the bottom so it never ends inside the visible area -->
+    <path d="M22 239 L40.5 239 L37 330 L14 330 Z" fill="#F6E7C1"/>
+    <path d="M40 239 L150 239 L165 330 L36.5 330 Z" fill="#E0A13C"/>
+    <path d="M124 80 C150 100 175 130 193 164 L184 174 C165 142 140 112 118 88 Z" fill="#F6E7C1" opacity="0.9"/>
+    <path d="M104 63 C110 80 118 90 130 94 C120 82 117 74 119 68 Z" fill="#F6E7C1"/>
+    <circle cx="138" cy="100" r="7" fill="#2A1E14"/>
+    <circle cx="140.5" cy="97.5" r="2.2" fill="#FFFFFF"/>
+    <ellipse cx="188" cy="166" rx="4.5" ry="3" transform="rotate(40 188 166)" fill="#2A1E14" opacity="0.7"/>
+    <path d="M160 178 C168 182 178 183 186 180" stroke="#2A1E14" stroke-width="2.5" fill="none" opacity="0.45" stroke-linecap="round"/>
+  </g>
+  <path transform="translate(69 29) rotate(12) scale(0.6)"
+        d="M0 6 C0 1 -7 -3 -11 1 C-15 5 -12 11 0 19 C12 11 15 5 11 1 C7 -3 0 1 0 6 Z" fill="#F6E7C1"/>
+</svg>

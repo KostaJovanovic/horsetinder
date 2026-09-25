@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Horse Tinder</string>
+    <string name="title_activity_main">Horse Tinder</string>
+    <string name="package_name">com.horsetinder.app</string>
+    <string name="custom_url_scheme">com.horsetinder.app</string>
+</resources>

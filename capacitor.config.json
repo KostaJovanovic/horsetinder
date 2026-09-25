@@ -1,0 +1,15 @@
+{
+  "appId": "com.horsetinder.app",
+  "appName": "Horse Tinder",
+  "webDir": "www",
+  "android": {
+    "backgroundColor": "#E7ECDC"
+  },
+  "plugins": {
+    "SystemBars": {
+      "insetsHandling": "css",
+      "initialViewportFitValueHint": "cover",
+      "style": "DEFAULT"
+    }
+  }
+}

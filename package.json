@@ -1,0 +1,20 @@
+{
+  "name": "horse-tinder",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {
+    "sync": "cap sync android",
+    "android": "cap open android",
+    "run:android": "cap run android"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/app": "^8.1.1",
+    "@capacitor/cli": "^8.5.2",
+    "@capacitor/core": "^8.5.2"
+  }
+}
