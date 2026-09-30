@@ -1,4 +1,7 @@
 @echo off
+rem The quick message is read before delayed expansion is on, or every "!" in it would go.
+setlocal disabledelayedexpansion
+set "QMSG=%~2"
 setlocal enabledelayedexpansion
 title Horse Tinder save
 cd /d "%~dp0"
@@ -13,6 +16,11 @@ rem
 rem   save.bat            the menu
 rem   save.bat save       add + commit + push
 rem   save.bat commit     add + commit, no push
+rem   save.bat quick "message"         save with no menu and no questions: the
+rem                                    stamp, add, commit, push. Every question takes
+rem                                    the safe answer - no init, no pull, no force -
+rem                                    and any failure exits non-zero. No message is v<label>.
+rem   save.bat quick-commit "message"  the same, no push
 rem   save.bat release    build the signed APK here, commit, push, then GitHub
 rem                       builds it again and publishes it for the app's updater
 rem   save.bat apk        the signed APK here, into dist\, and onto any phone
@@ -29,6 +37,7 @@ set FORCE_MODE=0
 set COMMIT_ONLY=0
 set RELEASE_MODE=0
 set SAVE_ERROR=0
+set "QUICK=0"
 set ACTION=%~1
 
 call :resolvebranch
@@ -39,6 +48,8 @@ if /i "%ACTION%"=="--force"   (set "FORCE_MODE=1" & set "ACTION=save")
 if /i "%ACTION%"=="commit"    (set "COMMIT_ONLY=1" & set "ACTION=save")
 if /i "%ACTION%"=="--no-push" (set "COMMIT_ONLY=1" & set "ACTION=save")
 if /i "%ACTION%"=="release"   (set "RELEASE_MODE=1" & set "ACTION=save")
+if /i "%ACTION%"=="quick"        (set "QUICK=1" & set "ACTION=save")
+if /i "%ACTION%"=="quick-commit" (set "QUICK=1" & set "COMMIT_ONLY=1" & set "ACTION=save")
 if /i "%ACTION%"=="save"     goto checkrepo
 if /i "%ACTION%"=="push"     goto push
 if /i "%ACTION%"=="pull"     goto pull
@@ -78,7 +89,11 @@ rem points it at GitHub instead of failing with a wall of errors.
 if exist ".git" goto save
 echo.
 echo [warn] no git repository here yet
+rem Quick never makes a repo: it answers no.
+set "DOINIT="
+if "%QUICK%"=="1" goto initanswered
 set /p DOINIT=run "git init" and use %REPO_URL%? (y/n):
+:initanswered
 if /i not "%DOINIT%"=="y" (
   echo [git]  skipped - nothing to commit into
   set SAVE_ERROR=1
@@ -171,8 +186,9 @@ git status --short
 echo.
 rem The message never goes through a command line: with delayed expansion on,
 rem `git commit -m` would eat every "!" in it. PowerShell writes it as UTF-8.
+rem Quick takes it from the command line; !QMSG! is not expanded a second time.
 set "MSG="
-set /p "MSG=commit message [v%VERLABEL%]: "
+if "%QUICK%"=="1" (set "MSG=!QMSG!") else set /p "MSG=commit message [v%VERLABEL%]: "
 if not defined MSG set "MSG=v%VERLABEL%"
 set "MSGFILE=%TEMP%\horsetinder-save-message.txt"
 powershell -NoProfile -Command "[IO.File]::WriteAllText($env:MSGFILE, $env:MSG)"
@@ -194,15 +210,19 @@ if "%REMOTE%"=="" (
   echo [git]  committed v%VERLABEL% - no remote configured, nothing pushed
   echo        add one with: git remote add origin %REPO_URL%
   if "%RELEASE_MODE%"=="1" echo [warn] nothing was pushed, so GitHub built nothing
+  if "%QUICK%"=="1" set "SAVE_ERROR=1"
   goto end
 )
 
 if "%FORCE_MODE%"=="1" goto forcepush
 if "%BRANCH%"=="" goto nobranch
+rem Quick was asked to push, so it does not ask again.
+if "%QUICK%"=="1" goto dopush
 echo.
 set /p DOPUSH=push to %REMOTE%/%BRANCH%? (y/n):
 if /i not "%DOPUSH%"=="y" goto skipped
 
+:dopush
 git push -u %REMOTE% %BRANCH%
 if not errorlevel 1 goto pushed
 
@@ -218,6 +238,11 @@ if errorlevel 1 (
 )
 echo.
 echo [warn] push rejected - remote is ahead of local
+if "%QUICK%"=="1" (
+  echo [git]  quick does not pull or force - nothing pushed. The commit is saved locally.
+  set SAVE_ERROR=1
+  goto end
+)
 set /p FETCH=pull + merge remote first? (y/n):
 if /i "%FETCH%"=="y" goto fetch
 echo.
@@ -537,5 +562,5 @@ exit /b 0
 
 :end
 echo.
-pause
+if not "%QUICK%"=="1" pause
 exit /b %SAVE_ERROR%
