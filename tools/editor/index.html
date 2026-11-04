@@ -1,0 +1,509 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Horse Tinder content editor</title>
+<style>
+  :root { --ink: #2b2118; --muted: #7a6a5a; --line: #e2d6c6; --ground: #f6efe4; --surface: #fffdf9; --leather: #8a4b24; --warn: #b3261e; --ok: #2e7d32; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.4 system-ui, sans-serif; color: var(--ink); background: var(--ground); }
+  header { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 10px; padding: 10px 16px; background: var(--surface); border-bottom: 1px solid var(--line); }
+  header h1 { margin: 0; font-size: 1.05rem; white-space: nowrap; }
+  #search { flex: 1 1 auto; min-width: 120px; max-width: 420px; padding: 7px 12px; border: 1px solid var(--line); border-radius: 999px; font: inherit; }
+  #status { flex: 1 1 auto; color: var(--muted); font-size: 0.85rem; text-align: right; }
+  #status.dirty { color: var(--leather); font-weight: 600; }
+  button, .btn { padding: 6px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); font: inherit; cursor: pointer; text-decoration: none; }
+  button:hover, .btn:hover { border-color: var(--leather); }
+  button.primary { background: var(--leather); border-color: var(--leather); color: #fff; font-weight: 600; }
+  button.primary:disabled { opacity: 0.45; cursor: default; }
+  .layout { display: flex; align-items: flex-start; }
+  nav { position: sticky; top: 53px; flex: none; width: 230px; max-height: calc(100vh - 53px); overflow-y: auto; padding: 12px 8px 40px; }
+  nav h2 { margin: 14px 10px 4px; color: var(--muted); font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; }
+  nav a { display: block; padding: 6px 10px; border-radius: 8px; color: inherit; text-decoration: none; }
+  nav a.on { background: var(--surface); color: var(--leather); font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+  main { flex: 1 1 auto; min-width: 0; max-width: 980px; padding: 16px 20px 80px; }
+  main > h2 { margin: 4px 0 4px; font-size: 1.4rem; }
+  .hint { margin: 0 0 14px; color: var(--muted); }
+  .card { margin: 0 0 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+  .card > .head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .card > .head .title { flex: 1 1 auto; font-weight: 600; font-family: ui-monospace, monospace; font-size: 0.9rem; }
+  .card > .head .desc { color: var(--muted); font-size: 0.85rem; font-family: system-ui, sans-serif; font-weight: 400; }
+  .field { display: flex; align-items: flex-start; gap: 8px; margin: 4px 0; }
+  .field > label { flex: none; width: 120px; padding-top: 6px; color: var(--muted); font-size: 0.85rem; overflow-wrap: anywhere; }
+  .field > .val { flex: 1 1 auto; min-width: 0; }
+  .list > .item { display: flex; align-items: flex-start; gap: 6px; margin: 3px 0; }
+  .list > .item > .val { flex: 1 1 auto; min-width: 0; }
+  .tools { flex: none; display: flex; gap: 2px; opacity: 0.35; }
+  .item:hover > .tools, .field:hover > .tools, .tools:focus-within { opacity: 1; }
+  .tools button, button.mini { padding: 2px 7px; font-size: 0.8rem; border-radius: 6px; }
+  textarea, input, select { width: 100%; padding: 5px 8px; border: 1px solid var(--line); border-radius: 7px; background: #fff; color: var(--ink); font: inherit; }
+  textarea { display: block; resize: vertical; min-height: 32px; overflow: hidden; }
+  textarea:focus, input:focus, select:focus { outline: 2px solid #e8b04b; border-color: transparent; }
+  input[type=number] { width: 110px; }
+  .warn { margin-top: 2px; color: var(--warn); font-size: 0.8rem; }
+  .sub { margin: 4px 0 4px 8px; padding-left: 10px; border-left: 2px solid var(--line); }
+  .add { margin-top: 4px; }
+  .addkey { display: flex; gap: 6px; margin-top: 8px; }
+  .addkey input { max-width: 300px; }
+  .horse { display: flex; gap: 14px; }
+  .horse .pic { flex: none; width: 140px; height: 140px; border-radius: 12px; overflow: hidden; background: var(--ground); }
+  .horse .pic svg { display: block; width: 100%; height: 100%; }
+  .horse .body { flex: 1 1 auto; min-width: 0; }
+  details > summary { cursor: pointer; list-style: none; }
+  details > summary::-webkit-details-marker { display: none; }
+  .sumrow { display: flex; align-items: center; gap: 10px; }
+  .sumrow .av { width: 44px; height: 44px; border-radius: 50%; overflow: hidden; background: var(--ground); flex: none; }
+  .sumrow .av svg { width: 100%; height: 100%; display: block; }
+  .sumrow b { font-size: 1rem; }
+  .sumrow span { color: var(--muted); font-size: 0.85rem; }
+  .group-title { margin: 22px 0 8px; font-size: 1rem; color: var(--leather); }
+  .tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+  .tabs button.on { background: var(--leather); border-color: var(--leather); color: #fff; }
+  .hit .path { color: var(--muted); font-family: ui-monospace, monospace; font-size: 0.8rem; margin-bottom: 3px; cursor: pointer; }
+  .hit .path:hover { color: var(--leather); text-decoration: underline; }
+  #result { position: fixed; right: 16px; bottom: 16px; z-index: 10; max-width: 560px; max-height: 50vh; overflow: auto; padding: 12px 14px; border-radius: 12px; background: var(--ink); color: #fff; box-shadow: 0 6px 24px rgba(0,0,0,.25); font-size: 0.9rem; }
+  #result pre { white-space: pre-wrap; margin: 8px 0 0; font-size: 0.8rem; }
+  #result .x { float: right; background: none; border: 0; color: #fff; padding: 0 0 0 10px; }
+  #result.bad { background: var(--warn); }
+  .help code { padding: 1px 5px; border-radius: 4px; background: var(--ground); font-size: 0.85rem; }
+  .help td { padding: 3px 12px 3px 0; vertical-align: top; }
+  @media (max-width: 760px) {
+    .layout { display: block; }
+    nav { position: static; width: auto; max-height: none; padding: 8px; display: flex; flex-wrap: wrap; gap: 2px; }
+    nav h2 { width: 100%; }
+    .field { flex-wrap: wrap; } .field > label { width: 100%; padding: 0; }
+    .horse { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Horse Tinder content</h1>
+  <input id="search" type="search" placeholder="Find a line anywhere…" aria-label="Find a line anywhere">
+  <span id="status">Loading…</span>
+  <a class="btn" href="http://localhost:46773" target="_blank" rel="noopener" title="The app from server.bat. Refresh it after saving.">Open app</a>
+  <button id="revert" type="button" title="Throw away unsaved changes">Revert</button>
+  <button id="save" class="primary" type="button" disabled title="Ctrl+S">Save</button>
+</header>
+<div class="layout">
+  <nav id="nav"></nav>
+  <main id="main"></main>
+</div>
+<div id="result" hidden></div>
+
+<script src="/www/js/art.js"></script>
+<script src="/www/js/art-classic.js"></script>
+<script>
+"use strict";
+const A = window.HorseArt;
+let data = null, dirty = false, current = "lines";
+
+// ---------- What can be edited, and how ----------
+const SECTIONS = [
+  { group: "Chat" },
+  { id: "lines", title: "Replies", path: ["chat", "lines"], hint: "Everything the horse says back, by situation. Each situation has a list; the horse picks one at random.", view: "lines" },
+  { id: "voiceLines", title: "Personality replies", path: ["chat", "voiceLines"], hint: "A personality's own version of a reply. When a personality has one, it's used instead of the normal Replies list.", view: "voiceLines" },
+  { id: "questions", title: "Horse's questions", path: ["chat", "questions"], hint: "Questions the horse asks to keep the chat going. The type decides what counts as an answer; yes/no questions need a topic (about), choices need two (a, b), open takes any answer. then: the question to ask next after a yes / no (or a / b). followup: only asked as someone's then, never at random." },
+  { id: "profileQuestions", title: "Questions about you", path: ["chat", "profileQuestions"], hint: "Asked about your own profile. needs: like (one of your interests, {yourLike}), disc ({yourDisc}), prompt (one of your answers, {yourQ} and {yourA}) or bio. Any answer counts." },
+  { id: "stories", title: "Stories", path: ["chat", "stories"], hint: "Told when the horse has nothing to answer, each once. A horse tells stories about its own interests first (name a list after the interest), then \"disc\" (its discipline), then \"any\". Each story is a few bubbles." },
+  { id: "moods", title: "Moods and typing", paths: [["chat", "moods"], ["chat", "typingSpeed"], ["chat", "typos"]], hint: "Every horse gets one mood a day, picked by weight. gain multiplies the good vibe it gives, speed how slowly it types; status shows in the chat header. Its first reply that day uses the mood.<name>.first reply. typingSpeed is per personality (1 = normal, 2 = twice as slow); typos is the chance per message of a typo and its *correction." },
+  { id: "nudges", title: "Nudges", path: ["chat", "nudges"], hint: "Sent once when you leave the horse's question unanswered for about half a minute with the chat open. Personalities without a list never nudge." },
+  { id: "chips", title: "Quick replies", path: ["chat", "chips"], hint: "The buttons above the keyboard. One list per question type, \"any\" when nothing was asked, \"first\" for an empty chat. Tests check that every button answers its question." },
+  { id: "concepts", title: "Words it understands", path: ["chat", "concepts"], hint: "Each group is one thing the horse recognises. kind: food, bad (not horse food), act (an activity or interest) or word (small talk like hello or insults). interest ties it to a profile interest." },
+  { id: "jokes", title: "Jokes", path: ["chat", "jokes"], hint: "Told in order. Each joke is a list of bubbles." },
+  { id: "facts", title: "Breed facts", paths: [["chat", "breedFacts"], ["chat", "buildFacts"]], hint: "\"What breed are you?\" answers. Breeds without a fact use the one for their build." },
+  { id: "dates", title: "Dates", paths: [["chat", "dateTimes"], ["chat", "datePlaces"]], hint: "When dates happen ([hour, minute]) and where. A horse that likes one of the interests on the left picks that place." },
+  { id: "gifts", title: "Gifts", path: ["chat", "gifts"], hint: "The gift buttons. The text should mention a food from Words it understands." },
+  { id: "faces", title: "Faces and openers", paths: [["chat", "faces"], ["chat", "voiceFaces"], ["chat", "openers"]], hint: "Text faces by mood and by personality, and the words each personality sometimes starts a reply with." },
+  { group: "Horses" },
+  { id: "horses", title: "Handmade horses", path: ["horses"], hint: "The horses everyone meets. Open one to edit it; the picture updates as you change its look. Leave the id alone once anyone has matched with a horse: saved matches find it by id.", view: "horses" },
+  { id: "voices", title: "Personalities", path: ["voices"], hint: "greet: first hello. snack and ride: when you mention food or riding. lines: what it says when it has nothing to answer, in turn." },
+  { id: "prompts", title: "Profile prompts", path: ["prompts"], hint: "Questions on profiles, with the answers random horses can give." },
+  { id: "bios", title: "Bios", path: ["bios"], hint: "Random horses get two of these." },
+  { id: "names", title: "Names", path: ["names"], hint: "Names for random horses." },
+  { id: "breeds", title: "Breeds", path: ["breeds"], hint: "Random horse breeds. min and max are heights in inches (4 inches = 1 hand). disc limits the disciplines." },
+  { id: "lists", title: "Interests and disciplines", paths: [["interests"], ["foods"], ["disciplines"]], hint: "Profile interests (foods are the interests that count as snacks) and disciplines." },
+  { id: "likeComments", title: "Comments on your profile", path: ["likeComments"], hint: "What a horse says when it likes one of your photos or prompts first. {quote} is your answer." },
+  { group: "Help" },
+  { id: "help", title: "Placeholders", view: "help" },
+];
+
+// Lists of values a field can take
+const SEX = ["mare", "stallion", "gelding"], LOOKING = ["longterm", "trail", "casual", "graze", "unsure"];
+const QTYPES = ["fav_food", "fun", "choice", "yesno", "morning_night", "human", "mood", "open"];
+function enumFor(pat) {
+  const keys = o => Object.keys(o || {});
+  const conceptIds = () => data.chat.concepts.map(c => c.id);
+  if (pat.indexOf("chat.questions[].then.") === 0) return [data.chat.questions.map(q => q.id), true];
+  const table = {
+    "horses[].sex": [SEX, true], "horses[].voice": [keys(data.voices), true], "horses[].lookingFor": [LOOKING, true],
+    "horses[].likes[]": [data.interests, true], "horses[].discipline": [data.disciplines, false],
+    "horses[].breed": [data.breeds.map(b => b.name), false], "horses[].ownPrompts[].q": [data.prompts.map(p => p.q), true],
+    "horses[].art.coat": [keys(A.COATS), true], "horses[].art.marking": [keys(A.MARKINGS), true], "horses[].art.pattern": [keys(A.PATTERNS), true],
+    "horses[].art.mane": [keys(A.MANES), true], "horses[].art.build": [keys(A.BUILDS), true], "horses[].art.accessory": [keys(A.ACCESSORIES), true],
+    "horses[].art.scene": [keys(A.SCENES), true], "horses[].art.pose": [keys(A.POSES), true],
+    "chat.questions[].type": [QTYPES, true], "chat.questions[].about": [conceptIds(), true], "chat.questions[].a": [conceptIds(), true], "chat.questions[].b": [conceptIds(), true],
+    "chat.concepts[].kind": [["food", "bad", "act", "word"], true], "chat.concepts[].interest": [data.interests, true],
+    "chat.profileQuestions[].needs": [["like", "disc", "prompt", "bio"], true],
+    "breeds[].coats[]": [keys(A.COATS), true], "breeds[].patterns[]": [keys(A.PATTERNS), true], "breeds[].build": [keys(A.BUILDS), true],
+    "breeds[].mane": [keys(A.MANES), true], "breeds[].disc[]": [data.disciplines, true],
+  };
+  return table[pat] || null;
+}
+// Objects where you add and remove your own keys
+const MAPS = ["chat.lines", "chat.voiceLines", "chat.voiceLines.*", "chat.breedFacts", "chat.buildFacts", "chat.datePlaces", "chat.dateTimes",
+  "chat.faces", "chat.voiceFaces", "chat.openers", "chat.chips", "voices", "likeComments.accessory", "likeComments.pose", "horses[].talk",
+  "chat.stories", "chat.moods", "chat.typingSpeed", "chat.typos", "chat.nudges", "chat.questions[].then"];
+// Fields an object may have or leave out, with what a new one starts as
+const OPTIONAL = {
+  "horses[]": { ownPrompts: () => [{ q: data.prompts[0].q, a: "" }], talk: () => ({ lines: [""] }) },
+  "horses[].art": { marking: () => "none", pattern: () => "none", build: () => "light", mane: () => "short", scene: () => "meadow", accessory: () => "none", pose: () => "side" },
+  "horses[].talk": { greet: () => [""], snack: () => [""], ride: () => [""], lines: () => [""] },
+  "chat.questions[]": { about: () => "mud", a: () => "gallop", b: () => "nap", then: () => ({ yes: data.chat.questions[0].id }), followup: () => true },
+  "chat.concepts[]": { interest: () => data.interests[0], label: () => "" },
+  "breeds[]": { build: () => "light", mane: () => "short", patterns: () => [], disc: () => [] },
+};
+const DESC = {
+  statement: "You say you like or hate something", dislike: "You say you don't like something", like: "You ask \"do you like…?\"",
+  answer: "Your answer to the horse's own question", repeat: "You say the same thing twice", glue: "Horse-meat jokes",
+  insult: "Insults (the second one unmatches)", gift: "You give it something: *gives you a carrot*", action: "You do an *action*",
+  name: "You tell it your name ({nick})", bot: "\"Are you a bot?\"", howAreYou: "\"How are you?\"", wyd: "\"What are you doing?\" by time of day",
+  yourName: "\"What's your name?\"", age: "\"How old are you?\"", breed: "\"What breed are you?\" ({fact} is the breed fact)", height: "\"How tall are you?\"",
+  where: "\"Where are you?\"", fav: "\"What's your favourite…?\"", hobby: "\"What do you do for fun?\"", invite: "You invite it to do something: {x}",
+  date: "Asking it out. {place} and {when} are the date", compliment: "Compliments", kiss: "Kisses and hugs (in words)", joke: "After a joke",
+  laugh: "You laugh", thanks: "You say thanks", sad: "You say you're sad", weather: "You talk about the weather", human: "You mention humans",
+  bye: "Goodbyes", hello: "Hellos (the first one uses the personality's greet)", passing: "You mention something in passing: {x}",
+  yes: "A plain yes", no: "A plain no", unknown: "It didn't understand", unmatch: "Vibe hit rock bottom", saidLike: "Once, when it's really into you",
+  opener: "Its first message, when you share an interest ({shared})",
+  self: "You ask \"you?\" back: it answers its own question", hate: "\"Do you hate…?\"", hates: "\"What don't you like?\" (it only tells its secret hate once it likes you)",
+  callback: "It brings up something you told it earlier", mood: "Its first reply of the day, by mood of the day (see Moods and typing)",
+};
+const PLACEHOLDERS = ["x", "word", "mine", "name", "age", "breed", "disc", "height", "food", "like1", "like2", "like3", "me", "nick", "dist",
+  "coat", "date", "fact", "place", "when", "shared", "topic", "a", "b", "quote", "yourLike", "yourDisc", "yourQ", "yourA"];
+
+// ---------- Helpers ----------
+const $ = id => document.getElementById(id);
+function el(tag, attrs, kids) {
+  const e = document.createElement(tag);
+  for (const k in attrs || {}) {
+    if (k === "on") for (const ev in attrs.on) e.addEventListener(ev, attrs.on[ev]);
+    else if (k === "text") e.textContent = attrs[k];
+    else if (k === "html") e.innerHTML = attrs[k];
+    else e.setAttribute(k, attrs[k]);
+  }
+  (kids || []).forEach(c => c != null && e.appendChild(typeof c === "string" ? document.createTextNode(c) : c));
+  return e;
+}
+function get(path) { return path.reduce((o, k) => (o == null ? o : o[k]), data); }
+const patternOf = path => path.map(k => typeof k === "number" ? "[]" : "." + k).join("").slice(1);
+function isMap(pat) { return MAPS.some(m => m === pat || (m.endsWith(".*") && pat.startsWith(m.slice(0, -1)) && pat.split(".").length === m.split(".").length)); }
+function touch() { dirty = true; status(); }
+function status(text) {
+  const s = $("status");
+  s.textContent = text || (dirty ? "Unsaved changes" : "All saved");
+  s.className = dirty ? "dirty" : "";
+  $("save").disabled = !dirty;
+}
+function grow(t) { t.style.height = "auto"; t.style.height = (t.scrollHeight + 2) + "px"; }
+function clone(v) { return JSON.parse(JSON.stringify(v)); }
+function blankLike(v) {
+  if (typeof v === "string") return "";
+  if (typeof v === "number") return 0;
+  return clone(v);
+}
+function placeholderWarning(text) {
+  const bad = [];
+  String(text).replace(/\{([^{}]+)\}/g, (all, k) => {
+    if (k.indexOf("|") < 0 && PLACEHOLDERS.indexOf(k.charAt(0).toLowerCase() + k.slice(1)) < 0) bad.push(all);
+  });
+  return bad.length ? "Unknown placeholder " + bad.join(", ") + " — it will show as typed." : "";
+}
+
+// ---------- The generic editor ----------
+/* Draws an editor for the value at `path`. `onChange` redraws something else (a horse picture). */
+function editor(path, onChange) {
+  const v = get(path), pat = patternOf(path);
+  const parent = get(path.slice(0, -1)), key = path[path.length - 1];
+  const set = nv => { parent[key] = nv; touch(); if (onChange) onChange(); };
+
+  if (typeof v === "string") {
+    const en = enumFor(pat);
+    if (en && en[1]) {
+      const opts = en[0].indexOf(v) >= 0 ? en[0] : [v].concat(en[0]);
+      return el("select", { on: { change: e => set(e.target.value) } }, opts.map(o => { const op = el("option", { value: o, text: o }); if (o === v) op.selected = true; return op; }));
+    }
+    const warn = el("div", { class: "warn" });
+    const t = el("textarea", { rows: "1", spellcheck: "true", on: { input: e => { set(e.target.value); grow(e.target); warn.textContent = placeholderWarning(e.target.value); } } });
+    t.value = v;
+    warn.textContent = placeholderWarning(v);
+    requestAnimationFrame(() => grow(t));
+    const wrap = el("div", {}, [t, warn]);
+    if (en) { const id = "dl-" + pat.replace(/\W/g, ""); t.setAttribute("list", id); if (!$(id)) document.body.appendChild(el("datalist", { id }, en[0].map(o => el("option", { value: o })))); }
+    return wrap;
+  }
+  if (typeof v === "number") {
+    const i = el("input", { type: "number", step: "any", on: { input: e => { if (e.target.value !== "") set(Number(e.target.value)); } } });
+    i.value = v;
+    return i;
+  }
+  if (typeof v === "boolean") {
+    const c = el("input", { type: "checkbox", on: { change: e => set(e.target.checked) } });
+    c.checked = v; c.style.width = "auto";
+    return c;
+  }
+  if (Array.isArray(v)) return listEditor(path, onChange);
+  if (v && typeof v === "object") return objectEditor(path, onChange);
+  return el("span", { text: String(v) });
+}
+
+function listEditor(path, onChange) {
+  const box = el("div", { class: "list" });
+  const draw = () => {
+    box.innerHTML = "";
+    const arr = get(path), pat = patternOf(path);
+    arr.forEach((_, i) => {
+      const move = d => { const j = i + d; if (j < 0 || j >= arr.length) return; const t = arr[i]; arr[i] = arr[j]; arr[j] = t; touch(); draw(); if (onChange) onChange(); };
+      box.appendChild(el("div", { class: "item" }, [
+        el("div", { class: "val" + (typeof arr[i] === "object" ? " sub" : "") }, [editor(path.concat(i), onChange)]),
+        el("div", { class: "tools" }, [
+          el("button", { type: "button", title: "Move up", text: "↑", on: { click: () => move(-1) } }),
+          el("button", { type: "button", title: "Move down", text: "↓", on: { click: () => move(1) } }),
+          el("button", { type: "button", title: "Remove", text: "✕", on: { click: () => { arr.splice(i, 1); touch(); draw(); if (onChange) onChange(); } } }),
+        ]),
+      ]));
+    });
+    box.appendChild(el("button", { type: "button", class: "mini add", text: "+ Add", on: { click: () => {
+      const en = enumFor(pat + "[]");
+      let nv = arr.length ? blankLike(arr[arr.length - 1]) : (en ? en[0][0] : "");
+      if (en && en[1] && typeof nv === "string") nv = en[0].filter(o => arr.indexOf(o) < 0)[0] || en[0][0];
+      if (nv && typeof nv === "object" && !Array.isArray(nv) && "id" in nv) nv.id = nv.id + "-new";
+      arr.push(nv); touch(); draw(); if (onChange) onChange();
+      const last = box.querySelectorAll(".item"); const f = last[last.length - 1] && last[last.length - 1].querySelector("textarea, input, select"); if (f) f.focus();
+    } } }));
+  };
+  draw();
+  return box;
+}
+
+function objectEditor(path, onChange) {
+  const box = el("div");
+  const draw = () => {
+    box.innerHTML = "";
+    const obj = get(path), pat = patternOf(path), map = isMap(pat), optional = OPTIONAL[pat] || {};
+    Object.keys(obj).forEach(k => {
+      const removable = map || optional[k];
+      box.appendChild(el("div", { class: "field" }, [
+        el("label", { text: k }),
+        el("div", { class: "val" }, [editor(path.concat(k), onChange)]),
+        removable ? el("div", { class: "tools" }, [el("button", { type: "button", title: "Remove " + k, text: "✕", on: { click: () => {
+          if (typeof obj[k] === "object" && !confirm("Remove \"" + k + "\" and everything in it?")) return;
+          delete obj[k]; touch(); draw(); if (onChange) onChange();
+        } } })]) : null,
+      ]));
+    });
+    const missing = Object.keys(optional).filter(k => !(k in obj));
+    if (missing.length) box.appendChild(el("div", { class: "addkey" }, missing.map(k => el("button", { type: "button", class: "mini", text: "+ " + k, on: { click: () => { obj[k] = optional[k](); touch(); draw(); if (onChange) onChange(); } } }))));
+    if (map) {
+      const sample = obj[Object.keys(obj)[0]];
+      const inp = el("input", { placeholder: "New name" });
+      box.appendChild(el("div", { class: "addkey" }, [inp, el("button", { type: "button", class: "mini", text: "+ Add", on: { click: () => {
+        const k = inp.value.trim();
+        if (!k || k in obj) { inp.focus(); return; }
+        obj[k] = sample === undefined ? [""] : Array.isArray(sample) ? (typeof sample[0] === "number" ? [12, 0] : [""]) : typeof sample === "string" ? "" : clone(sample);
+        touch(); draw(); if (onChange) onChange();
+      } } })]));
+    }
+  };
+  draw();
+  return box;
+}
+
+// ---------- Section views ----------
+function card(title, desc, body, tools) {
+  return el("div", { class: "card" }, [el("div", { class: "head" }, [el("span", { class: "title" }, [title, desc ? el("div", { class: "desc", text: desc }) : null])].concat(tools || [])), body]);
+}
+
+function viewLines(sec) {
+  const lines = get(sec.path), frag = el("div");
+  let lastGroup = null;
+  Object.keys(lines).forEach(k => {
+    const g = k.split(".")[0];
+    if (g !== lastGroup) {
+      frag.appendChild(el("h3", { class: "group-title", text: g }));
+      if (DESC[g]) frag.appendChild(el("p", { class: "hint", text: DESC[g] }));
+      lastGroup = g;
+    }
+    frag.appendChild(card(k, "", editor(sec.path.concat(k)),
+      [el("button", { type: "button", class: "mini", title: "Remove this situation", text: "✕", on: { click: () => { if (confirm("Remove \"" + k + "\"? The app may then say nothing here.")) { delete lines[k]; touch(); show(sec.id); } } } })]));
+  });
+  const inp = el("input", { placeholder: "new.situation.name" });
+  frag.appendChild(card("Add a situation", "Only useful if the code asks for this name.", el("div", { class: "addkey" }, [inp, el("button", { type: "button", class: "mini", text: "+ Add", on: { click: () => { const k = inp.value.trim(); if (k && !(k in lines)) { lines[k] = [""]; touch(); show(sec.id); } } } })])));
+  return frag;
+}
+
+function viewVoiceLines(sec) {
+  const vl = get(sec.path), voices = Object.keys(data.voices), frag = el("div");
+  const tabs = el("div", { class: "tabs" });
+  const body = el("div");
+  let on = viewVoiceLines.on && voices.indexOf(viewVoiceLines.on) >= 0 ? viewVoiceLines.on : voices[0];
+  const draw = () => {
+    tabs.innerHTML = "";
+    voices.forEach(v => tabs.appendChild(el("button", { type: "button", class: v === on ? "on" : "", text: v + (vl[v] ? " (" + Object.keys(vl[v]).length + ")" : ""), on: { click: () => { on = viewVoiceLines.on = v; draw(); } } })));
+    body.innerHTML = "";
+    const mine = vl[on] || {};
+    Object.keys(mine).forEach(k => body.appendChild(card(k, "Normally: " + ((data.chat.lines[k] || [])[0] || "(nothing)"), editor(sec.path.concat(on, k)),
+      [el("button", { type: "button", class: "mini", text: "✕", title: "Use the normal replies again", on: { click: () => { delete mine[k]; if (!Object.keys(mine).length) delete vl[on]; touch(); draw(); } } })])));
+    const sel = el("select", {}, Object.keys(data.chat.lines).filter(k => !(k in mine)).map(k => el("option", { value: k, text: k })));
+    body.appendChild(card("Give " + on + " its own version of…", "", el("div", { class: "addkey" }, [sel, el("button", { type: "button", class: "mini", text: "+ Add", on: { click: () => {
+      if (!sel.value) return;
+      if (!vl[on]) vl[on] = {};
+      vl[on][sel.value] = clone(data.chat.lines[sel.value] || [""]);
+      touch(); draw();
+    } } })])));
+  };
+  draw();
+  frag.appendChild(tabs); frag.appendChild(body);
+  return frag;
+}
+
+function horsePic(h, plain) {
+  try { return A.render(A.normalize(clone(h.art || {})), plain ? { plain: true, label: h.name } : { label: h.name }); }
+  catch (e) { return "<p style='padding:8px;color:#b3261e'>Can't draw: " + e.message + "</p>"; }
+}
+
+function viewHorses(sec) {
+  const list = get(sec.path), frag = el("div");
+  list.forEach((h, i) => {
+    const av = el("span", { class: "av", html: horsePic(h, true) });
+    const name = el("b", { text: h.name }), info = el("span", { text: h.breed + ", " + h.voice });
+    const pic = el("div", { class: "pic" });
+    const redraw = () => { pic.innerHTML = horsePic(h); av.innerHTML = horsePic(h, true); name.textContent = h.name; info.textContent = h.breed + ", " + h.voice; };
+    const body = el("div", { class: "body" });
+    const d = el("details", { class: "card" }, [
+      el("summary", {}, [el("div", { class: "sumrow" }, [av, el("div", {}, [name, el("br"), info])])]),
+      el("div", { class: "horse", style: "margin-top:12px" }, [pic, body]),
+      el("div", { class: "addkey" }, [
+        el("button", { type: "button", class: "mini", text: "Copy as a new horse", on: { click: () => { const c = clone(h); c.id = h.id + "-copy"; c.name = h.name + " (copy)"; list.splice(i + 1, 0, c); touch(); show(sec.id); } } }),
+        el("button", { type: "button", class: "mini", text: "Remove horse", on: { click: () => { if (confirm("Remove " + h.name + "? Saved matches with them stay.")) { list.splice(i, 1); touch(); show(sec.id); } } } }),
+      ]),
+    ]);
+    d.addEventListener("toggle", () => { if (d.open && !body.firstChild) { body.appendChild(editor(sec.path.concat(i), redraw)); pic.innerHTML = horsePic(h); } });
+    frag.appendChild(d);
+  });
+  return frag;
+}
+
+function viewHelp() {
+  const rows = [
+    ["{x} / {X}", "The thing being talked about (\"carrots\"), {X} capitalised"], ["{word}", "The word you typed for it"],
+    ["{name}", "The horse's name"], ["{age}, {breed}, {height}", "The horse's age, breed, height"], ["{disc}", "Its discipline, lowercase ({Disc} capitalised)"],
+    ["{food}", "Its favourite snack"], ["{like1} {like2} {like3}", "Its three interests"], ["{mine}", "Its favourite snack, when comparing with yours"],
+    ["{me}", "Your nickname, or \"you\""], ["{nick}", "Your nickname"], ["{dist}", "How far away it is"], ["{coat}", "Its coat colour"],
+    ["{date}", "The date you planned"], ["{place}, {when}", "Where and when a new date is"], ["{fact}", "The breed fact"], ["{shared}", "An interest you both have"],
+    ["{topic}, {mine}", "Quick replies: a random interest, one of yours"], ["{A}, {B}", "Quick replies for \"this or that\" questions"], ["{quote}", "Your prompt answer, shortened"],
+    ["{yourLike}, {yourDisc}, {yourQ}, {yourA}", "Questions about you: one of your interests, your discipline, one of your prompts and its answer"],
+    ["{one|two|three}", "Picks one at random"],
+  ];
+  return el("div", { class: "card help" }, [
+    el("p", { text: "Write a capital first letter to get the value capitalised: {food} gives \"carrots\", {Food} gives \"Carrots\". Not every line knows every value: the ones about you and the chat only work in chat replies." }),
+    el("table", {}, rows.map(r => el("tr", {}, [el("td", {}, [el("code", { text: r[0] })]), el("td", { text: r[1] })]))),
+    el("p", { text: "*Stars around a line* make it an action bubble. Saving runs the tests; if a quick reply stops answering its question, they'll say so." }),
+  ]);
+}
+
+function show(id) {
+  current = id;
+  location.hash = id;
+  $("search").value = "";
+  const sec = SECTIONS.filter(s => s.id === id)[0] || SECTIONS[1];
+  document.querySelectorAll("nav a").forEach(a => a.classList.toggle("on", a.dataset.id === sec.id));
+  const main = $("main");
+  main.innerHTML = "";
+  main.appendChild(el("h2", { text: sec.title }));
+  if (sec.hint) main.appendChild(el("p", { class: "hint", text: sec.hint }));
+  if (sec.view === "lines") main.appendChild(viewLines(sec));
+  else if (sec.view === "voiceLines") main.appendChild(viewVoiceLines(sec));
+  else if (sec.view === "horses") main.appendChild(viewHorses(sec));
+  else if (sec.view === "help") main.appendChild(viewHelp());
+  else (sec.paths || [sec.path]).forEach(p => main.appendChild(card(p.join("."), "", editor(p))));
+  window.scrollTo(0, 0);
+}
+
+// ---------- Search every string ----------
+function search(q) {
+  q = q.trim().toLowerCase();
+  if (!q) { show(current); return; }
+  const hits = [];
+  (function walk(v, path) {
+    if (hits.length >= 200) return;
+    if (typeof v === "string") { if (v.toLowerCase().indexOf(q) >= 0 || String(path[path.length - 1]).toLowerCase() === q) hits.push(path); }
+    else if (v && typeof v === "object") for (const k in v) walk(v[k], path.concat(Array.isArray(v) ? Number(k) : k));
+  })(data, []);
+  const main = $("main");
+  main.innerHTML = "";
+  main.appendChild(el("h2", { text: hits.length + (hits.length >= 200 ? "+" : "") + " found" }));
+  main.appendChild(el("p", { class: "hint", text: "Edit right here, or click the path to go to its section." }));
+  hits.forEach(p => {
+    const sec = SECTIONS.filter(s => s.path && patternOf(p).indexOf(patternOf(s.path)) === 0 || (s.paths || []).some(sp => patternOf(p).indexOf(patternOf(sp)) === 0))[0];
+    main.appendChild(el("div", { class: "card hit" }, [
+      el("div", { class: "path", text: patternOf(p).replace(/\[\]/g, "·") + "  " + p.filter(k => typeof k === "number").map(n => "#" + (n + 1)).join(" "), on: { click: () => sec && show(sec.id) } }),
+      editor(p),
+    ]));
+  });
+}
+
+// ---------- Load and save ----------
+async function load() {
+  const r = await fetch("/api/content");
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error || r.statusText);
+  data = j; dirty = false;
+  const nav = $("nav");
+  nav.innerHTML = "";
+  SECTIONS.forEach(s => nav.appendChild(s.group ? el("h2", { text: s.group }) : el("a", { href: "#" + s.id, "data-id": s.id, text: s.title, on: { click: e => { e.preventDefault(); show(s.id); } } })));
+  show((location.hash || "#lines").slice(1));
+  status();
+}
+
+function result(html, bad) {
+  const r = $("result");
+  r.className = bad ? "bad" : "";
+  r.innerHTML = "<button class='x' type='button' aria-label='Close'>✕</button>" + html;
+  r.hidden = false;
+  r.querySelector(".x").onclick = () => { r.hidden = true; };
+}
+const escHtml = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;" })[c]);
+
+async function save() {
+  if (!dirty) return;
+  status("Saving and testing…");
+  $("save").disabled = true;
+  try {
+    const r = await fetch("/api/content", { method: "POST", headers: { "Content-Type": "application/json", "X-Horse-Editor": "1" }, body: JSON.stringify(data) });
+    const j = await r.json();
+    if (!r.ok) {
+      result("<b>" + escHtml(j.error || "Not saved") + "</b>" + (j.problems ? "<pre>" + escHtml(j.problems.join("\n")) + "</pre>" : ""), true);
+      status("Not saved"); $("save").disabled = false;
+      return;
+    }
+    dirty = false; status("Saved");
+    if (j.testsOk === false) result("<b>Saved, but the tests found a problem.</b> The old file is in " + escHtml(j.backup) + ".<pre>" + escHtml(j.tests) + "</pre>", true);
+    else result("<b>Saved.</b> Refresh the app to see it. " + (j.testsOk ? "Tests passed." : escHtml(j.tests)) + "<pre>" + escHtml(j.testsOk ? j.tests : "") + "</pre>");
+    setTimeout(() => { if (!$("result").classList.contains("bad")) $("result").hidden = true; }, 6000);
+  } catch (e) {
+    result("<b>Couldn't reach the editor server.</b> Is editor.bat still running?<pre>" + escHtml(e.message) + "</pre>", true);
+    status("Not saved"); $("save").disabled = false;
+  }
+}
+
+$("save").addEventListener("click", save);
+$("revert").addEventListener("click", () => { if (!dirty || confirm("Throw away your unsaved changes?")) load(); });
+document.addEventListener("keydown", e => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") { e.preventDefault(); save(); } });
+window.addEventListener("beforeunload", e => { if (dirty) { e.preventDefault(); e.returnValue = ""; } });
+let searchTimer = null;
+$("search").addEventListener("input", e => { clearTimeout(searchTimer); const q = e.target.value; searchTimer = setTimeout(() => search(q), 200); });
+load().catch(e => { $("main").innerHTML = ""; $("main").appendChild(el("p", { class: "warn", text: "Couldn't load content: " + e.message })); status("Error"); });
+</script>
+</body>
+</html>

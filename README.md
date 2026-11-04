@@ -20,7 +20,8 @@ writes into the phone's calendar instead, and updates itself (below).
 | | |
 |---|---|
 | `server.bat` | Serves `www/` on port 46773 and prints a QR code for opening it on a phone on the same Wi-Fi |
-| `npm test` | Chat checks: every quick reply answers its question, past dates end (`tools/test-chat.js`) |
+| `editor.bat` | Opens the content editor at localhost:46774: everything horses say and understand, their questions, stories and personalities, the handmade horses, prompts, names and breeds. It edits `www/js/content.js`, keeps a backup of each save in `tools/.backups/` and runs `npm test` after saving. Localhost only |
+| `npm test` | Chat checks: every quick reply answers its question, past dates end, the content holds together, and the chat features work (`tools/test-chat.js`) |
 | `save.bat` | Git menu: commit, save (commit + push), release, signed APK, pull, push, keystore |
 | `python resources/make_icons.py` | Redraws the Android launcher icons and the website's icons from one design |
 

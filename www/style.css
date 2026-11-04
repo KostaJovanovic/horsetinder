@@ -1443,7 +1443,9 @@ select.ob-input option { background: var(--surface); color: var(--ink); }
   position: relative;
   flex: none;
   height: 36vh;
-  margin: 0 16px;
+  width: 36vh; /* the photo is square: as wide as it is tall, so none of it is cut off */
+  max-width: calc(100% - 32px);
+  margin: 0 auto;
   border-radius: 18px;
   overflow: hidden;
   box-shadow: var(--shadow);

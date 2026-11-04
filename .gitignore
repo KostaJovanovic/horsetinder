@@ -1,5 +1,7 @@
 node_modules/
 __pycache__/
+# content.js copies the editor makes before each save
+tools/.backups/
 
 # Signed APKs built by save.bat
 dist/

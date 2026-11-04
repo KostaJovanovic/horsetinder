@@ -76,24 +76,8 @@
   }
 
   // ---------- Horses liking you first ----------
-  const PHOTO_COMMENTS = {
-    cowboy: ["Yeehaw. That hat works on you.", "Is the hat staying on for the date?"],
-    shades: ["Cool shades. Can I borrow them?", "Too cool for this paddock."],
-    flowers: ["Did you make that crown yourself?", "The flowers. Stop it."],
-    bow: ["The bow is doing a lot of work and I'm here for it."],
-    halter: ["Red really suits you."],
-    flymask: ["Mysterious. I like it."],
-    rosette: ["A winner, I see. Show me how."],
-  };
-  const POSE_COMMENTS = { graze: ["Save me some of that grass?"], back: ["Looking back at me?"] };
-  const ANY_PHOTO = ["That mane, though.", "Great light in this one.", "Okay, hello.", "You look like trouble. Good trouble."];
-  const PROMPT_COMMENTS = [
-    a => `"${a.length > 40 ? a.slice(0, 38).trim() + "…" : a}" Same, honestly.`,
-    () => "Okay, this made me snort.",
-    () => "We need to talk about this answer.",
-    () => "Finally, a horse with taste.",
-    () => "Ha. You get it.",
-  ];
+  // The comments themselves are in content.js (likeComments)
+  const LC = window.HorseContent.likeComments;
 
   /* Would horse h like one of your photos or prompts before you've swiped on it?
      Only horses whose secret preferences you pass. Returns null, or what it liked:
@@ -107,10 +91,12 @@
     const index = kind === "prompt" ? A.pick(rand, answered) : Math.floor(rand() * me.photos.length);
     let comment = "";
     if (rand() < 0.5) {
-      if (kind === "prompt") comment = A.pick(rand, PROMPT_COMMENTS)(me.prompts[index].a);
-      else {
+      if (kind === "prompt") {
+        const a = me.prompts[index].a;
+        comment = window.HorseData.fill(A.pick(rand, LC.prompt), { quote: a.length > 40 ? a.slice(0, 38).trim() + "…" : a });
+      } else {
         const ph = me.photos[index] || {};
-        comment = A.pick(rand, PHOTO_COMMENTS[ph.accessory] || POSE_COMMENTS[ph.pose] || ANY_PHOTO);
+        comment = A.pick(rand, LC.accessory[ph.accessory] || LC.pose[ph.pose] || LC.anyPhoto);
       }
     }
     return { kind, index, comment };

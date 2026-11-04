@@ -509,11 +509,6 @@
     vibeDelta.classList.add("show");
   }
 
-  function ghosting(m) {
-    const p = m.horse.prefs;
-    return p && p.ghostAfter && m.sent > p.ghostAfter && m.vibe < 80;
-  }
-
   function renderChat() {
     const m = activeChat;
     if (!m) return;
@@ -536,9 +531,9 @@
     const last = m.messages[m.messages.length - 1];
     $("chat-status").textContent = gone ? "Unmatched"
       : m.typing ? "typing…"
-      : last && last.from === "me" && ghosting(m) ? "Seen"
+      : last && last.from === "me" && C.ghosting(m) ? "Seen"
       : m.mem && m.mem.date ? "Date: " + m.mem.date
-      : `${D.fmtDist(h.distance)} away, grazing`;
+      : `${D.fmtDist(h.distance)} away, ${C.moodStatus(h)}`;
     renderVibe(m);
   }
 
@@ -583,6 +578,7 @@
     const item = m.inbox && m.inbox[0];
     if (!item || state.matches.indexOf(m) < 0) {
       if (activeChat === m && !giftMode) renderQuick();
+      if (activeChat === m) scheduleNudge(m);
       return;
     }
     typingNow.add(m);
@@ -602,11 +598,33 @@
       pump(m);
     };
     if (item.text === null) { deliver(); return; }
+    const speed = C.typingSpeed(m.horse); // hyper horses type fast, chill and sleepy ones slowly
     setTimeout(() => {
       m.typing = true;
       refresh(m);
-      setTimeout(deliver, 600 + Math.min(item.text.length * 28, 2000));
-    }, 350 + Math.random() * 600);
+      setTimeout(deliver, speed * (600 + Math.min(item.text.length * 28, 2000)));
+    }, speed * (350 + Math.random() * 600));
+  }
+
+  /* Leave the horse's question unanswered with the chat open and some personalities
+     nudge you. Typing, sending or closing the chat calls it off. */
+  let nudgeTimer = null;
+  function scheduleNudge(m) {
+    clearTimeout(nudgeTimer);
+    const last = m && m.messages[m.messages.length - 1];
+    if (!m || activeChat !== m || !last || last.from !== "them" || !m.mem || !m.mem.pending) return;
+    nudgeTimer = setTimeout(() => {
+      if (activeChat !== m || chatInput.value.trim() || (m.inbox && m.inbox.length) || m.messages[m.messages.length - 1] !== last) return;
+      const lines = C.nudge(m, state.profile);
+      if (lines) queueReplies(m, lines);
+    }, 25000 + Math.random() * 20000);
+  }
+
+  /* A date whose time has passed gets a message about how it went */
+  function checkDate(m) {
+    if (!m || state.matches.indexOf(m) < 0 || (m.inbox && m.inbox.length)) return;
+    const r = C.afterDate(m, state.profile);
+    if (r) queueReplies(m, r.replies, { vibe: r.vibe, unmatch: r.unmatch });
   }
   /* Once the horse has said everything: the vibe moves, and maybe a date or an unmatch */
   function settle(m, a) {
@@ -646,10 +664,13 @@
       m.openerDone = true;
       if (Math.random() < 0.65) queueReplies(m, C.opener(m, state.profile));
     }
+    checkDate(m);
+    scheduleNudge(m);
     if (window.matchMedia && window.matchMedia("(hover: hover)").matches) chatInput.focus();
   }
 
   function closeChat() {
+    clearTimeout(nudgeTimer);
     if (activeChat) activeChat.draft = chatInput.value;
     chatEl.hidden = true;
     activeChat = null;
@@ -658,6 +679,7 @@
   function sendMessage(m, text) {
     text = text.trim();
     if (!m || !text || m.status === "unmatched") return;
+    clearTimeout(nudgeTimer);
     C.init(m, state.profile);
     const msg = { from: "me", text };
     m.messages.push(msg);
@@ -689,6 +711,7 @@
     if (giftMode) { giftMode = false; renderQuick(); }
   });
   giftBtn.addEventListener("click", () => { giftMode = !giftMode; renderQuick(); });
+  chatInput.addEventListener("input", () => scheduleNudge(activeChat)); // typing restarts the wait
   chatLog.addEventListener("click", e => {
     if (e.target.closest("[data-add-cal]") && activeChat) { addToCalendar(activeChat); return; }
     if (e.target.closest("[data-remove-chat]") && activeChat) removeMatch(activeChat);
@@ -1216,6 +1239,9 @@
   renderMe();
   newDeck(false);
   state.matches.forEach(m => pump(m)); // replies a reload interrupted
+  // Dates that ended while the app was closed, or while it's open
+  state.matches.forEach(checkDate);
+  setInterval(() => state.matches.forEach(checkDate), 60000);
   if (state.profile) keepData();
   else startSetup();
 })();

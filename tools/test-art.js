@@ -8,7 +8,7 @@ const assert = require("assert");
 const path = require("path");
 
 globalThis.window = globalThis;
-for (const f of ["art", "horses", "prefs"]) require(path.join(__dirname, "..", "www", "js", f + ".js"));
+for (const f of ["content", "art", "horses", "prefs"]) require(path.join(__dirname, "..", "www", "js", f + ".js"));
 const A = window.HorseArt, D = window.HorseData, P = window.HorsePrefs;
 let checks = 0;
 

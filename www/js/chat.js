@@ -1,79 +1,30 @@
 /* Chat brain. Reads what you type word by word (plurals and small typos included),
    works out what you mean, and answers from the horse's profile, personality,
    secret preferences and what's been said so far.
+   Everything it says or understands is in content.js (chat.*), edited with
+   tools/editor.py; this file only decides which line fits.
    Plain ES2017 for the Sunmi V2 (Chrome 62): no named groups, lookbehind or ?. */
 (function () {
   "use strict";
   const D = window.HorseData;
   const A = window.HorseArt;
+  const K = window.HorseContent.chat;
 
   function rnd(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
   function chance(p) { return Math.random() < p; }
   function cap(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
 
+  /* A line from content.js by name: the personality's own version if it has one */
+  function line(key, vars, voice) {
+    const own = K.voiceLines && K.voiceLines[voice] && K.voiceLines[voice][key];
+    const pool = own && own.length ? own : K.lines[key];
+    if (!pool || !pool.length) return "";
+    return D.fill(pool.length === 1 ? pool[0] : rnd(pool), vars);
+  }
+
   // ---------- Vocabulary ----------
   /* kind: food | bad (not horse food) | act (activity/interest) | word (intent signal) */
-  const CONCEPTS = [
-    { id: "carrot", kind: "food", interest: "Carrots", label: "carrots", words: ["carrot", "carrots"] },
-    { id: "apple", kind: "food", interest: "Apples", label: "apples", words: ["apple", "apples"] },
-    { id: "mint", kind: "food", interest: "Peppermints", label: "peppermints", words: ["mint", "mints", "peppermint", "peppermints", "polo", "polos"] },
-    { id: "sugar", kind: "food", interest: "Sugar cubes", label: "sugar cubes", words: ["sugar", "sugarcube", "sugarcubes", "cube", "cubes"] },
-    { id: "hay", kind: "food", interest: "Hay nets", label: "hay", words: ["hay", "haynet", "haynets", "haylage"] },
-    { id: "oats", kind: "food", label: "oats", words: ["oat", "oats", "oatmeal", "grain", "muesli", "mash"] },
-    { id: "grass", kind: "food", label: "grass", words: ["grass", "clover", "dandelion", "dandelions", "graze", "grazing"] },
-    { id: "banana", kind: "food", label: "bananas", words: ["banana", "bananas"] },
-    { id: "melon", kind: "food", label: "watermelon", words: ["watermelon", "melon", "melons"] },
-    { id: "beet", kind: "food", label: "sugar beet", words: ["beet", "beets", "beetroot"] },
-    { id: "treat", kind: "food", label: "treats", words: ["treat", "treats", "snack", "snacks", "cookie", "cookies", "biscuit", "biscuits", "food"] },
-    { id: "junk", kind: "bad", label: "that", words: ["chocolate", "bread", "pizza", "meat", "candy", "cake", "onion", "onions", "avocado", "coffee", "fries", "chips", "donut", "donuts", "icecream", "burger"] },
-
-    { id: "gallop", kind: "act", interest: "Long gallops", label: "galloping", words: ["gallop", "gallops", "galloping", "run", "running", "sprint", "zoomies", "fast"] },
-    { id: "jump", kind: "act", interest: "Jumping", label: "jumping", words: ["jump", "jumps", "jumping", "fence", "fences", "showjumping", "xc", "crosscountry"] },
-    { id: "trail", kind: "act", interest: "Trail rides", label: "trail rides", words: ["trail", "trails", "hack", "hacking", "hike", "walk", "walks", "woods", "forest"] },
-    { id: "dressage", kind: "act", interest: "Dressage", label: "dressage", words: ["dressage", "piaffe", "passage", "collected", "halfpass"] },
-    { id: "swim", kind: "act", interest: "Swimming", label: "swimming", words: ["swim", "swimming", "lake", "river", "pond"] },
-    { id: "beach", kind: "act", interest: "Beach rides", label: "the beach", words: ["beach", "sea", "ocean", "sand", "waves", "seaside"] },
-    { id: "snow", kind: "act", interest: "Snow days", label: "snow", words: ["snow", "snowy", "winter", "snowman"] },
-    { id: "nap", kind: "act", interest: "Napping standing up", label: "napping", words: ["nap", "naps", "napping", "sleep", "sleeping", "snooze", "resting"] },
-    { id: "mud", kind: "act", interest: "Rolling in mud", label: "mud", words: ["mud", "muddy", "roll", "rolling", "puddle", "puddles", "dirt"] },
-    { id: "groom", kind: "act", interest: "Being groomed", label: "being brushed", words: ["groom", "grooming", "groomed", "brush", "brushing", "brushed", "scratch", "scratches", "itchy"] },
-    { id: "race", kind: "act", interest: "Racing", label: "racing", words: ["race", "races", "racing", "racetrack", "derby"] },
-    { id: "show", kind: "act", interest: "Horse shows", label: "horse shows", words: ["show", "shows", "ribbon", "ribbons", "rosette", "rosettes", "competition", "competitions", "compete"] },
-    { id: "parade", kind: "act", interest: "Parades", label: "parades", words: ["parade", "parades"] },
-    { id: "stars", kind: "act", interest: "Stargazing", label: "stargazing", words: ["stars", "stargazing", "moon", "moonlight"] },
-    { id: "country", kind: "act", interest: "Country music", label: "country music", words: ["country", "banjo", "dolly"] },
-    { id: "classical", kind: "act", interest: "Classical music", label: "classical music", words: ["classical", "mozart", "bach", "beethoven", "violin"] },
-    { id: "goats", kind: "act", interest: "Goats", label: "goats", words: ["goat", "goats", "kevin"] },
-    { id: "cats", kind: "act", interest: "Barn cats", label: "barn cats", words: ["cat", "cats", "kitten", "kittens"] },
-    { id: "kids", kind: "act", interest: "Pony Club kids", label: "kids", words: ["kid", "kids", "children", "ponyclub"] },
-    { id: "bags", kind: "act", interest: "Spooking at bags", label: "plastic bags", words: ["bag", "bags", "spook", "spooking", "spooky"] },
-    { id: "sun", kind: "act", interest: "Sunbathing", label: "sunbathing", words: ["sunbathing", "sunbathe", "tan", "sunshine"] },
-    { id: "rugs", kind: "act", interest: "Rain rugs", label: "rugs", words: ["rug", "rugs", "blanket", "blankets"] },
-    { id: "music", kind: "act", label: "music", words: ["music", "song", "songs", "singing", "sing"] },
-    { id: "ride", kind: "act", label: "riding", words: ["ride", "rides", "riding", "canter", "cantering", "trot", "trotting", "saddle"] },
-
-    { id: "hello", kind: "word", words: ["hi", "hey", "hello", "hiya", "howdy", "yo", "heya", "hallo", "greetings", "neigh", "heyy", "heyyy"] },
-    { id: "bye", kind: "word", words: ["bye", "goodbye", "goodnight", "gnight", "cya", "farewell", "byee", "gtg"] },
-    { id: "thanks", kind: "word", words: ["thanks", "thank", "thx", "ty", "cheers"] },
-    { id: "laugh", kind: "word", words: ["haha", "hahaha", "lol", "lmao", "hehe", "rofl", "funny", "hilarious", "xd"] },
-    { id: "compliment", kind: "word", words: ["cute", "beautiful", "pretty", "handsome", "gorgeous", "lovely", "stunning", "majestic", "shiny", "sexy", "adorable", "perfect", "amazing", "elegant", "fluffy", "sweet"] },
-    { id: "insult", kind: "word", words: ["ugly", "stupid", "dumb", "fat", "idiot", "boring", "smelly", "stinky", "gross", "lame", "donkey", "loser", "annoying", "useless", "mule"] },
-    { id: "glue", kind: "word", words: ["glue", "lasagna", "lasagne", "salami", "sausage", "dogfood", "knacker", "slaughter"] },
-    { id: "date", kind: "word", words: ["date", "meet", "meetup", "hangout", "visit", "trough", "together", "dinner"] },
-    { id: "joke", kind: "word", words: ["joke", "jokes", "pun", "puns"] },
-    { id: "sad", kind: "word", words: ["sad", "lonely", "tired", "upset", "depressed", "bored", "stressed", "sick", "hurt", "awful", "terrible", "bad", "exhausted", "lame"] },
-    { id: "happy", kind: "word", words: ["happy", "great", "good", "awesome", "excited", "well", "fantastic", "wonderful", "brilliant", "okay", "ok", "alright"] },
-    { id: "yes", kind: "word", words: ["yes", "yeah", "yep", "yup", "sure", "ofc", "definitely", "absolutely", "totally", "aye", "yea", "ya", "always", "course", "obviously", "sometimes"] },
-    { id: "no", kind: "word", words: ["no", "nope", "nah", "never", "not", "nay"] },
-    { id: "kiss", kind: "word", words: ["kiss", "kisses", "nuzzle", "nuzzles", "hug", "hugs", "cuddle", "cuddles", "boop", "smooch"] },
-    { id: "weather", kind: "word", words: ["weather", "rain", "raining", "rainy", "sunny", "cold", "windy", "storm", "stormy", "hot", "warm"] },
-    { id: "human", kind: "word", words: ["human", "owner", "rider", "person", "humans", "farrier", "vet", "mum", "mom", "dad"] },
-    { id: "bot", kind: "word", words: ["bot", "robot", "ai", "fake", "catfish", "chatbot"] },
-    { id: "morning", kind: "word", words: ["morning", "early", "sunrise", "dawn", "breakfast"] },
-    { id: "night", kind: "word", words: ["night", "nighttime", "evening", "late", "owl", "nocturnal", "midnight"] },
-    { id: "both", kind: "word", words: ["both", "either", "all"] },
-    { id: "whinny", kind: "word", words: ["whinny", "whinnies", "nicker", "nickers", "neighs", "snort", "snorts"] },
-  ];
+  const CONCEPTS = K.concepts;
 
   // word -> concept (the first concept listing a word wins, so foods beat intent words)
   const INDEX = {};
@@ -124,7 +75,9 @@
       .replace(/\bu\b/g, "you").replace(/\bur\b/g, "your").replace(/\br\b/g, "are").replace(/\bim\b/g, "i'm")
       .replace(/\bdont\b/g, "don't").replace(/\bcant\b/g, "can't").replace(/\bwanna\b/g, "want to")
       .replace(/\b(?:luv|luvv|wuv|lurve|looove|loove)\b/g, "love").replace(/\bfave?[a-z]*\b/g, "favourite")
-      .replace(/\bfavo[a-z]*\b/g, "favourite").replace(/\bgonna\b/g, "going to");
+      .replace(/\bfavo[a-z]*\b/g, "favourite").replace(/\bgonna\b/g, "going to")
+      // "lame" about yourself means hurt; about the horse it stays an insult
+      .replace(/\b(i'm|i am|i feel|feeling|went|gone) lame\b/g, "$1 sad");
     const toks = t.replace(/[^a-z0-9' ]/g, " ").split(" ").filter(Boolean);
     const ents = [], words = {};
     toks.forEach(w => {
@@ -151,86 +104,17 @@
     return A.hashString(h.id + c.id) % 3 === 0 ? "meh" : "ok";
   }
 
-  const BREED_FACTS = {
-    "Arabian": "We have one fewer vertebra than other horses. Aerodynamic.",
-    "Thoroughbred": "Every single one of us has a birthday on January 1st. Weird, right?",
-    "Quarter Horse": "We're named after the quarter-mile races we used to win.",
-    "Friesian": "The hair takes about two hours to brush. Every day.",
-    "Shetland pony": "Pound for pound, we're the strongest horse breed there is.",
-    "Miniature horse": "Some of us work as guide animals. We live longer than dogs.",
-    "Clydesdale": "My hooves are about the size of a dinner plate.",
-    "Shire": "Shires hold the record for the tallest horse ever.",
-    "Haflinger": "Every Haflinger is chestnut with a flaxen mane. We're a matching set.",
-    "Fjord": "My mane is cut short so the black stripe down the middle shows.",
-    "Icelandic": "I have a fifth gait called the tölt. Very smooth.",
-    "Akhal-Teke": "Our coats really are metallic. It's the hair structure.",
-    "Appaloosa": "No two of us have the same spots.",
-    "Lipizzaner": "We're born dark and go white as we get older.",
-    "Mustang": "My ancestors ran wild in the American West.",
-    "Paso Fino": "People ride us holding full glasses of water to show off how smooth we are.",
-    "Percheron": "We came from France. Very chic, very large.",
-  };
   function breedFact(h) {
-    if (BREED_FACTS[h.breed]) return BREED_FACTS[h.breed];
+    if (K.breedFacts[h.breed]) return K.breedFacts[h.breed];
     const build = (h.art && h.art.build) || "light";
-    return build === "draft" ? "We're known for being strong and very calm."
-      : build === "pony" ? "Small, clever and a little bit mischievous. That's us."
-      : "Athletic, sensitive, occasionally dramatic.";
+    return K.buildFacts[build] || K.buildFacts.light;
   }
 
-  const JOKES = [
-    ["Why did the horse cross the road?", "Someone shouted \"Hay!\""],
-    ["What do you call a horse that lives next door?", "Your neigh-bour."],
-    ["Why did the pony need a glass of water?", "Because it was a little horse."],
-    ["What's a horse's favourite sport?", "Stable tennis."],
-    ["What did the horse say when it fell over?", "\"I've fallen and I can't giddy-up.\""],
-    ["Why are horses bad at dancing?", "Two left feet. And two right feet."],
-    ["What do you call a horse with no legs?", "Doesn't matter, it won't come when you call it anyway."],
-  ];
-
-  // Questions a horse asks to keep things going. `about` ties the answer to a concept.
-  const QUESTIONS = [
-    { id: "fav_food", text: "What's your favourite snack?", type: "fav_food" },
-    { id: "fun", text: "What do you like doing on weekends?", type: "fun" },
-    { id: "gallop_nap", text: "Galloping or napping?", type: "choice", a: "gallop", b: "nap" },
-    { id: "beach_snow", text: "Beach rides or snow days?", type: "choice", a: "beach", b: "snow" },
-    { id: "mud", text: "Have you ever rolled in a really good mud puddle?", type: "yesno", about: "mud" },
-    { id: "jump", text: "Do you jump?", type: "yesno", about: "jump" },
-    { id: "swim", text: "Can you swim?", type: "yesno", about: "swim" },
-    { id: "groom", text: "Do you like being brushed?", type: "yesno", about: "groom" },
-    { id: "morning", text: "Are you a morning horse or a night horse?", type: "morning_night" },
-    { id: "human", text: "What's your human like?", type: "human" },
-    { id: "mood", text: "How's your day going?", type: "mood" },
-  ];
-
   // ---------- Personality ----------
-  const OPENERS = {
-    posh: ["Well, ", "Darling, ", "Indeed. "], sassy: ["Ugh, ", "Okay, ", "Listen. "], chill: ["Eh, ", "Hmm, ", "Yeah, "],
-    hyper: ["OMG ", "Oh oh oh ", "WAIT "], gentle: ["Oh, ", "Aw, ", "Well now, "], foodie: ["mmm ", "ooh ", "ok so "],
-    guarded: [], tiny: [],
-  };
   /* Text emoticons (kaomoji and classic ASCII), never emoji. Picked by the mood of the
      reply first, then by personality. Characters stick to scripts Android 7 has fonts for. */
-  const FACES = {
-    love: ["<3", "(´∀`)<3", "(*˘︶˘*)", "(✿◠‿◠)", "(*^‿^*)"],
-    laugh: ["XD", ":D", "(≧▽≦)", "ヽ(´▽`)ノ", "^_^"],
-    angry: [">:(", "(ಠ_ಠ)", "(╬ Ò﹏Ó)", "-_-", "(¬_¬)"],
-    shock: ["O_O", "(⊙_⊙)", "o.O", "(°ロ°)"],
-    sad: [":(", "(´；ω；`)", "(._.)", "(╥﹏╥)"],
-    shy: ["(〃▽〃)", ">///<", "(*/ω＼*)", "(⁄ ⁄•⁄ω⁄•⁄ ⁄)"],
-    food: ["(っ˘ڡ˘ς)", ":9", "nom nom", "(*￣▽￣)b"],
-    shrug: ["¯\\_(ツ)_/¯", "(・_・;)", "(-_-)zzz"],
-  };
-  const VOICE_FACES = {
-    posh: [":)", "(ˆ⌣ˆ)", ";)"],
-    sassy: ["(¬‿¬)", ":P", "-_-", "(￢_￢)"],
-    chill: ["¯\\_(ツ)_/¯", ":)", "(ᵔᴥᵔ)"],
-    hyper: ["XD", "\\(^o^)/", "(ﾉ◕ヮ◕)ﾉ", ":D"],
-    gentle: ["(◕‿◕)", "<3", "(´• ω •`)"],
-    foodie: ["(っ˘ڡ˘ς)", ":9", "nom"],
-    guarded: ["-_-", "(•_•)"],
-    tiny: ["(・ω・)", "(｡•‿•｡)", "(ᵔᴥᵔ)"],
-  };
+  const FACES = K.faces;
+  const VOICE_FACES = K.voiceFaces;
   const settings = { emoticons: true };
 
   function moodOf(out) {
@@ -267,8 +151,10 @@
   function style(text, voice) {
     if (/^\*.*\*$/.test(text)) return text;
     let out = cap(text);
-    if (OPENERS[voice] && OPENERS[voice].length && chance(0.18) && !/^(?:[A-Z]{2}|I\b|I')/.test(out)) {
-      const o = rnd(OPENERS[voice]);
+    const openers = K.openers[voice];
+    // Never in front of an *action*: "Oh oh oh *takes it gently*" reads wrong
+    if (openers && openers.length && chance(0.18) && !/^(?:[A-Z]{2}|I\b|I'|\*)/.test(out)) {
+      const o = rnd(openers);
       // "Well, hi" but "Indeed. Hi"
       out = o + (/[.!?] $/.test(o) ? out : out.charAt(0).toLowerCase() + out.slice(1));
     }
@@ -290,7 +176,7 @@
   }
 
   const DATE_MINS = 60, DATE_LEAD = 30 * 60000;
-  const DATE_TIMES = { "at feeding time": [17, 0], "at sunset": [19, 30], "tomorrow morning": [9, 0], "after training": [16, 0] };
+  const DATE_TIMES = K.dateTimes;
 
   function dateOver(mem) { return !!(mem.date && mem.dateAt && mem.dateAt + DATE_MINS * 60000 < Date.now()); }
 
@@ -311,128 +197,207 @@
     return mem.dateAt;
   }
 
-  function nextQuestion(m) {
-    const left = QUESTIONS.filter(q => m.mem.asked.indexOf(q.id) < 0);
-    if (!left.length) return null;
-    // Prefer questions about things this horse cares about
+  /* Questions about your own profile, with what they mention filled in. Only the ones
+     your profile has the details for. */
+  function profileQuestions(m, me) {
+    if (!me) return [];
     const h = m.horse;
-    const keen = left.filter(q => q.about && ["love", "secret"].indexOf(opinion(h, BY_ID[q.about])) >= 0);
-    const q = rnd(keen.length && chance(0.6) ? keen : left);
-    m.mem.asked.push(q.id);
-    m.mem.pending = { type: q.type, id: q.id, about: q.about, a: q.a, b: q.b };
+    const notShared = (me.interests || []).filter(i => h.likes.indexOf(i) < 0);
+    const likes = notShared.length ? notShared : me.interests || [];
+    const answered = (me.prompts || []).filter(p => p && p.a);
+    const pr = answered.length ? answered[A.hashString(h.id) % answered.length] : null;
+    const vars = {
+      yourLike: likes.length ? likes[A.hashString(h.id + "like") % likes.length].toLowerCase() : "",
+      yourDisc: (me.discipline || "").toLowerCase(),
+      yourQ: pr ? pr.q : "", yourA: pr ? (pr.a.length > 50 ? pr.a.slice(0, 48).trim() + "…" : pr.a) : "",
+    };
+    const has = { like: !!vars.yourLike, disc: !!vars.yourDisc, prompt: !!pr, bio: ((me.bio || "").trim().length >= 20) };
+    return (K.profileQuestions || []).filter(q => has[q.needs]).map(q => ({ id: q.id, type: q.type || "open", text: D.fill(q.text, vars) }));
+  }
+
+  /* The horse asks something. `force` is a follow-up's id, asked whatever else is left. */
+  function nextQuestion(m, me, force) {
+    const mem = m.mem, h = m.horse;
+    const byId = id => K.questions.filter(q => q.id === id)[0];
+    let q = force && mem.asked.indexOf(force) < 0 ? byId(force) : null;
+    if (!q && !nickOf(m, me) && mem.asked.indexOf("name") < 0) q = { id: "name", type: "name", text: line("name.ask", {}, h.voice) || "What do I call you, by the way?" };
+    if (!q) {
+      const left = K.questions.filter(x => !x.followup && mem.asked.indexOf(x.id) < 0);
+      const mine = profileQuestions(m, me).filter(x => mem.asked.indexOf(x.id) < 0);
+      // Prefer questions about things this horse cares about, then ones about you
+      const keen = left.filter(x => x.about && BY_ID[x.about] && ["love", "secret"].indexOf(opinion(h, BY_ID[x.about])) >= 0);
+      if (mine.length && mem.turns >= 2 && chance(0.3)) q = rnd(mine);
+      else if (keen.length && chance(0.6)) q = rnd(keen);
+      else if (left.length) q = rnd(left);
+      else if (mine.length) q = rnd(mine);
+    }
+    if (!q) return null;
+    mem.asked.push(q.id);
+    mem.pending = { type: q.type, id: q.id, about: q.about, a: q.a, b: q.b, then: q.then };
+    mem.lastAsked = mem.pending;
     return q.text;
   }
 
+  /* What the horse calls you: a nickname you told it, else the name on your profile */
+  function nickOf(m, me) { return (m.mem && m.mem.nick) || (me && me.name) || ""; }
+
+  /* Everything a line can mention about this horse, you and this chat */
+  function varsFor(m, me) {
+    const h = m.horse, mem = m.mem || {};
+    const coat = A.COATS[(h.art && h.art.coat) || "bay"];
+    const nick = nickOf(m, me);
+    return Object.assign(D.varsOf(h), {
+      me: nick || "you", nick, dist: D.fmtDist(h.distance), coat: coat ? coat.name : "",
+      date: mem.date || "", place: mem.datePlace || "",
+    });
+  }
+
+  // ---------- Mood of the day ----------
+  function today() { const d = new Date(); return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate(); }
+  /* Same mood all day for a horse, a new one tomorrow */
+  function moodId(h) {
+    const moods = K.moods || {}, ids = Object.keys(moods);
+    if (!ids.length) return "normal";
+    const total = ids.reduce((s, k) => s + (moods[k].weight || 0), 0);
+    let r = total > 0 ? A.hashString(h.id + "|" + today()) % total : 0;
+    for (let i = 0; i < ids.length; i++) { r -= moods[ids[i]].weight || 0; if (r < 0) return ids[i]; }
+    return ids[0];
+  }
+  function moodOfDay(h) { return (K.moods && K.moods[moodId(h)]) || {}; }
+  /* For the chat header: "grazing", "grumpy today" */
+  function moodStatus(h) { return moodOfDay(h).status || "grazing"; }
+  /* How long this horse takes to type: 1 is normal, 2 twice as slow */
+  function typingSpeed(h) { return ((K.typingSpeed && K.typingSpeed[h.voice || "chill"]) || 1) * (moodOfDay(h).speed || 1); }
+
   // ---------- Reactions to things you like / dislike ----------
   function aboutStatement(h, ent, likesIt, out, mem) {
-    const c = ent.c, X = cap(c.label), x = c.label;
+    const c = ent.c, x = c.label;
+    const v = { x, word: ent.word };
     const op = opinion(h, c);
-    if (c.kind === "bad") {
-      out.say(rnd([`${cap(ent.word)}? Isn't that bad for horses?`, `You eat ${ent.word}? My vet would faint.`]), -2);
-      return;
-    }
+    if (c.kind === "bad") { out.say(out.line("statement.bad", v), -2); return; }
     if (likesIt) {
       if (op === "hate") {
         out.unmatch = true;
-        out.say(rnd([`${X}? You like ${x}? We're done here.`, `Sorry. I can't be with a horse who's into ${x}.`, `*turns around and walks off* ${X}. Unbelievable.`]), -40, "!?");
+        out.say(out.line("statement.hate", v), -40, "!?");
       } else if (op === "love") {
         mem.told[c.id] = "love";
         learn(mem, "loves", x);
-        out.say(rnd([`Same!! I love ${x}.`, `Wait, me too! ${X} is the best.`, `${X}? Okay, you just got a lot more interesting.`]), 10, "♥");
+        out.say(out.line("statement.love", v), 10, "♥");
       } else if (op === "secret") {
         mem.told[c.id] = "love";
         learn(mem, "loves", x);
-        out.say(rnd([`Hold on. You like ${x}? I've always wanted someone who likes ${x}.`, `${X}?! Nobody ever says ${x}. I love that.`]), 15, "♥");
-      } else if (op === "food") {
-        out.say(rnd([`Ooh, ${x}. Good taste.`, `${X}. A horse of culture.`]), 4);
-      } else if (op === "meh") {
-        out.say(rnd([`${X}? Hm. Not really my thing, but okay.`, `Each to their own. ${X} isn't for me.`]), -2);
-      } else {
-        out.say(rnd([`${X} is fun. I could get into that.`, `Nice. I've done a bit of ${x} myself.`]), 3);
-      }
+        out.say(out.line("statement.secret", v), 15, "♥");
+      } else if (op === "food") out.say(out.line("statement.food", v), 4);
+      else if (op === "meh") out.say(out.line("statement.meh", v), -2);
+      else out.say(out.line("statement.ok", v), 3);
     } else {
       if (op === "hate") learn(mem, "hates", x);
-      if (op === "hate") out.say(rnd([`FINALLY someone gets it. ${X} is the worst.`, `Thank you. ${X} should be illegal.`]), 15, "♥");
-      else if (op === "love" || op === "secret") out.say(rnd([`What? ${X} is one of my favourite things!`, `Oh. I actually really like ${x}.`]), -6, "!?");
-      else out.say(rnd(["Fair enough.", `Yeah, ${x} isn't for everyone.`]), 0);
+      if (op === "hate") out.say(out.line("dislike.hate", v), 15, "♥");
+      else if (op === "love" || op === "secret") out.say(out.line("dislike.love", v), -6, "!?");
+      else out.say(out.line("dislike.ok", v), 0);
     }
   }
 
-  function doYouLike(h, ent, out, mem) {
-    const c = ent.c, X = cap(c.label), x = c.label;
+  /* `asked` is set when an earlier topic in the same message already asked "Do you?" */
+  function doYouLike(h, ent, out, mem, asked) {
+    const c = ent.c, x = c.label;
+    const v = { x, word: ent.word };
     const op = opinion(h, c);
-    if (op === "bad") { out.say(rnd([`${cap(ent.word)}? No, that's bad for horses. My vet would faint.`, `I'm not allowed ${ent.word}. Colic, apparently.`])); return; }
+    if (op === "bad") { out.say(out.line("like.bad", v)); return; }
     if (op === "hate") {
       mem.revealedHate = true;
       learn(mem, "hates", x);
-      out.say(rnd([`No. I can't stand ${x}. Please never bring it up again.`, `${X}? Absolutely not.`, `Ugh. ${X}. Next question.`]), -4);
-    } else if (op === "love") {
+      out.say(out.line("like.hate", v), -4);
+    } else if (op === "love" || op === "secret") {
       learn(mem, "loves", x);
-      out.say(rnd([`Yes!! I love ${x}.`, `I love ${x}. It's literally on my profile.`]), 3);
-      out.say("Do you?");
-      mem.pending = { type: "likeback", about: c.id };
-    } else if (op === "secret") {
-      learn(mem, "loves", x);
-      out.say(rnd([`Honestly? I love ${x}. Don't tell anyone.`, `Between us, ${x} is my secret favourite thing.`]), 2);
-      out.say("Do you?");
-      mem.pending = { type: "likeback", about: c.id };
-    } else if (op === "food") out.say(rnd(["It's food, so yes.", `${X}? I'd never say no.`]));
-    else if (op === "meh") out.say(rnd(["Not really, if I'm honest.", `${X}? Meh.`]));
-    else out.say(rnd(["Sometimes. Depends on the day.", `${X} is alright.`]));
+      out.say(out.line(op === "love" ? "like.love" : "like.secret", v), op === "love" ? 3 : 2);
+      if (!asked) {
+        out.say(out.line("like.doYou", v));
+        mem.pending = { type: "likeback", about: c.id };
+        out.askedBack = true;
+      }
+    } else if (op === "food") out.say(out.line("like.food", v));
+    else if (op === "meh") out.say(out.line("like.meh", v));
+    else out.say(out.line("like.ok", v));
   }
 
   // ---------- Answers to the horse's own questions ----------
   function answerPending(m, me, a, out) {
     const p = m.mem.pending, h = m.horse, mem = m.mem;
-    const ent = a.ents[0];
     const yes = a.words.yes && !a.words.no, no = a.words.no && !a.words.yes;
     mem.pending = null;
     switch (p.type) {
       case "fav_food": {
         const food = a.ents.filter(e => e.c.kind === "food" || e.c.kind === "bad")[0];
-        if (!food) { out.say(rnd(["Never heard of it. Is it crunchy?", "Is that a snack? I'll take your word for it."])); return true; }
+        if (!food) { out.say(out.line("answer.food.unknown")); return true; }
         mem.told.food = food.c.id;
-        if (food.c.kind === "bad") { out.say(`${cap(food.word)}?! You can't eat that, you're a horse.`, -2, "!?"); return true; }
-        const mine = D.favouriteFood(h);
-        if (opinion(h, food.c) === "love" || food.c.label === mine) out.say(rnd([`Same!! ${cap(food.c.label)} are elite.`, `Okay we have the same favourite snack. This is fate.`]), 10, "♥");
-        else if (opinion(h, food.c) === "hate") out.say(`${cap(food.c.label)}? Hm. I can't stand ${food.c.label}.`, -6);
-        else out.say(rnd([`${cap(food.c.label)}, nice. I'm more of a ${mine} horse.`, `Good choice. Mine's ${mine}.`]), 3);
+        const v = { x: food.c.label, word: food.word, mine: D.favouriteFood(h) };
+        if (food.c.kind === "bad") { out.say(out.line("answer.food.bad", v), -2, "!?"); return true; }
+        if (opinion(h, food.c) === "love" || food.c.label === v.mine) out.say(out.line("answer.food.same", v), 10, "♥");
+        else if (opinion(h, food.c) === "hate") out.say(out.line("answer.food.hate", v), -6);
+        else out.say(out.line("answer.food.other", v), 3);
         return true;
       }
       case "fun": {
         const act = a.ents.filter(e => e.c.kind === "act")[0];
-        if (!act) { out.say(rnd(["Sounds fun. I'd mostly just watch though.", "Ha. Sounds like you."]), 1); return true; }
+        if (!act) { out.say(out.line("answer.fun.none"), 1); return true; }
+        mem.told[act.c.id] = mem.told[act.c.id] || "love";
         aboutStatement(h, act, true, out, mem);
         return true;
       }
+      case "open": {
+        // Any answer will do. If it mentions something the horse has feelings about, it says so.
+        const e = a.ents[0], op = e && opinion(h, e.c);
+        if (e && (op === "love" || op === "secret")) aboutStatement(h, e, true, out, mem);
+        else if (e && op === "hate") out.say(out.line("passing.hate", { x: e.c.label, word: e.word }), -3);
+        else out.say(out.line("answer.open"), 2);
+        return true;
+      }
+      case "name": {
+        if (/\b(?:rather not|secret|not telling|none of your)\b/.test(a.t) || (no && a.toks.length <= 2)) { out.say(out.line("name.secret")); return true; }
+        const named = /\b(?:my name is|call me|i'm called|i am called|name's)\s+([A-Za-z][A-Za-z'-]*)/i.exec(a.raw);
+        const word = named ? named[1] : a.toks.length <= 2 ? (a.raw.trim().split(/\s+/)[0] || "").replace(/[^A-Za-z'-]/g, "") : "";
+        if (!word) { mem.pending = p; return false; }
+        mem.nick = cap(word);
+        out.say(out.line("name.mine"), 2);
+        return true;
+      }
       case "likeback":
-        if (yes) out.say(rnd(["We're going to get along.", "I knew it. *happy snort*"]), 8, "♥");
-        else if (no) out.say(rnd(["Oh. Well, more for me.", "That's okay. Nobody's perfect."]), -3);
+        if (yes) out.say(out.line("answer.likeback.yes"), 8, "♥");
+        else if (no) out.say(out.line("answer.likeback.no"), -3);
         else { mem.pending = p; return false; }
         return true;
       case "yesno": {
-        const op = opinion(h, BY_ID[p.about]);
-        const x = BY_ID[p.about].label;
+        const c = BY_ID[p.about];
+        if (!c) return true; // a question whose topic was removed from content.js
+        const op = opinion(h, c);
+        const v = { x: c.label };
         if (!yes && !no) { mem.pending = p; return false; }
+        mem.told["yn:" + c.id] = yes ? "yes" : "no";
+        if (p.then && p.then[yes ? "yes" : "no"]) out.followUp = p.then[yes ? "yes" : "no"];
+        const keen = op === "love" || op === "secret";
         if (yes) {
-          if (op === "love" || op === "secret") out.say(rnd([`Yes! Knew I liked you.`, `Okay, we have to do ${x} together.`]), 8, "♥");
-          else if (op === "hate") out.say(rnd([`Oh no. I was hoping you'd say no.`, `Ew. ${cap(x)}. Okay.`]), -8);
-          else out.say(rnd(["Ha, respect.", "Nice."]), 2);
+          if (keen) out.say(out.line("answer.yesno.yes.love", v), 8, "♥");
+          else if (op === "hate") out.say(out.line("answer.yesno.yes.hate", v), -8);
+          else out.say(out.line("answer.yesno.yes.ok", v), 2);
         } else {
-          if (op === "love" || op === "secret") out.say(rnd(["You're missing out!", `No ${x}? I'll have to change that.`]), -1);
-          else if (op === "hate") out.say(rnd([`Good. ${cap(x)} is overrated.`, "Correct answer."]), 8, "♥");
-          else out.say(rnd(["Fair.", "Smart."]));
+          if (keen) out.say(out.line("answer.yesno.no.love", v), -1);
+          else if (op === "hate") out.say(out.line("answer.yesno.no.hate", v), 8, "♥");
+          else out.say(out.line("answer.yesno.no.ok", v));
         }
         return true;
       }
       case "choice": {
         const picked = a.ents.filter(e => e.c.id === p.a || e.c.id === p.b)[0];
-        if (a.words.both) { out.say(rnd(["Greedy. I respect it.", "Both is a valid answer."]), 3); return true; }
+        if (a.words.both) { out.say(out.line("answer.choice.both"), 3); return true; }
         if (!picked) { mem.pending = p; return false; }
+        mem.told["pick:" + picked.c.id] = "yes";
+        if (p.then && p.then[picked.c.id === p.a ? "a" : "b"]) out.followUp = p.then[picked.c.id === p.a ? "a" : "b"];
         const op = opinion(h, picked.c);
-        if (op === "love" || op === "secret") out.say(rnd([`Correct answer.`, `${cap(picked.c.label)}! Good. We can still be friends.`]), 8, "♥");
-        else if (op === "hate") out.say(`${cap(picked.c.label)}? Wrong answer. But I'll allow it.`, -5);
-        else out.say(rnd(["Interesting choice.", "Noted."]), 1);
+        const v = { x: picked.c.label };
+        if (op === "love" || op === "secret") out.say(out.line("answer.choice.love", v), 8, "♥");
+        else if (op === "hate") out.say(out.line("answer.choice.hate", v), -5);
+        else out.say(out.line("answer.choice.ok", v), 1);
         return true;
       }
       case "morning_night": {
@@ -440,21 +405,67 @@
         if (!early && !late) { mem.pending = p; return false; }
         const mine = A.hashString(h.id) % 2 ? "morning" : "night";
         mem.told.clock = early ? "morning" : "night";
-        if ((early && mine === "morning") || (late && mine === "night")) out.say(rnd(["Same! We'd be awake at the same time.", "Me too. We'd get along."]), 6);
-        else out.say(early ? "Morning? I'm barely awake before breakfast hay." : "Night? I'm asleep standing up by then.", -1);
+        if ((early && mine === "morning") || (late && mine === "night")) out.say(out.line("answer.clock.same"), 6);
+        else out.say(out.line(early ? "answer.clock.morning" : "answer.clock.night"), -1);
         return true;
       }
       case "human":
-        out.say(rnd(["They sound nice. Mine keeps trying to put a rug on me.", "Ha. Mine talks to me in a baby voice.", "Good humans are hard to find. Keep them."]), 2);
+        mem.told.human = "yes";
+        out.say(out.line("answer.human"), 2);
         return true;
       case "mood":
-        if (a.words.sad) out.say(rnd(["*rests head on your shoulder* Want to talk about it?", "Oh no. Do you need a carrot?"]), 4);
-        else if (a.words.happy || yes) out.say(rnd(["Love that for you.", "Good! Mine's better now too."]), 2);
-        else { out.say(rnd(["Fair enough.", "Days are like that."])); }
+        if (a.words.sad) mem.told.sad = today();
+        if (a.words.sad) out.say(out.line("answer.mood.sad"), 4);
+        else if (a.words.happy || yes) out.say(out.line("answer.mood.happy"), 2);
+        else out.say(out.line("answer.mood.other"));
         return true;
       default:
         return false;
     }
+  }
+
+  /* Ghosting (secret preference). A horse that's really into you keeps replying. */
+  function ghosting(m) {
+    const p = m.horse.prefs;
+    return !!(p && p.ghostAfter && m.sent > p.ghostAfter && m.vibe < 80);
+  }
+
+  /* "How are you?" answers for today's mood, if it has its own */
+  function howAreYouKey(h) {
+    const k = "howAreYou." + moodId(h);
+    return K.lines[k] && K.lines[k].length ? k : "howAreYou";
+  }
+
+  /* "You?": the horse answers the question it asked (or is still waiting on), else
+     says what it thinks of the last thing you talked about */
+  function selfAnswer(m, out) {
+    const mem = m.mem, h = m.horse;
+    const p = mem.pending || mem.lastAsked;
+    const feel = c => {
+      const op = opinion(h, c);
+      out.say(out.line(op === "love" || op === "secret" ? "self.yes" : op === "hate" ? "self.hate" : "self.meh", { x: c.label }));
+    };
+    if (p) {
+      const ca = BY_ID[p.a], cb = BY_ID[p.b], c = BY_ID[p.about];
+      if (p.type === "fav_food") out.say(out.line("self.food"));
+      else if (p.type === "fun") out.say(out.line("self.fun"));
+      else if (p.type === "choice" && ca && cb) {
+        const score = x => ({ love: 3, secret: 3, food: 1, ok: 1, meh: 0, hate: -1 })[opinion(h, x)] || 0;
+        const pick = score(ca) === score(cb) ? (A.hashString(h.id + p.id) % 2 ? ca : cb) : score(ca) > score(cb) ? ca : cb;
+        out.say(out.line("self.choice", { x: pick.label }));
+      } else if ((p.type === "yesno" || p.type === "likeback") && c) feel(c);
+      else if (p.type === "morning_night") out.say(out.line(A.hashString(h.id) % 2 ? "self.clock.morning" : "self.clock.night"));
+      else if (p.type === "human") out.say(out.line("human"));
+      else if (p.type === "mood") out.say(out.line(howAreYouKey(h)));
+      else if (p.type === "name") out.say(out.line("yourName"));
+      else out.say(out.line("self.open"));
+      if (mem.pending) out.say(out.line("self.yourTurn"));
+      else mem.lastAsked = null;
+      return;
+    }
+    const last = mem.lastTopic && BY_ID[mem.lastTopic];
+    if (last) feel(last);
+    else out.say(out.line("self.none"));
   }
 
   // ---------- The main reply ----------
@@ -467,18 +478,26 @@
     const t = a.t, W = a.words;
     const out = {
       replies: [], react: null, vibe: 0, unmatch: false, ignore: false, date: null, ask: null,
-      say(text, dv, react) { this.replies.push(text); this.vibe += dv || 0; if (react) this.react = react; },
+      say(text, dv, react) { if (text) this.replies.push(text); this.vibe += dv || 0; if (react) this.react = react; },
+      // A named line from content.js, with this chat's details filled in
+      line(key, extra) { return line(key, Object.assign(varsFor(m, me), extra), voice); },
+      fill(text) { return D.fill(text, varsFor(m, me)); },
     };
     mem.turns++;
 
-    // Ghosting (secret preference). A horse that's really into you keeps replying.
-    if (h.prefs && h.prefs.ghostAfter && m.sent > h.prefs.ghostAfter && m.vibe < 80) { out.ignore = true; return out; }
+    if (ghosting(m)) { out.ignore = true; return out; }
+
+    // The first reply of the day says how the horse is feeling today
+    if (mem.moodDay !== today()) {
+      mem.moodDay = today();
+      out.moodFirst = out.line("mood." + moodId(h) + ".first");
+    }
 
     // Saying the same thing twice
     if (mem.last === t && t.length > 3) {
-      out.say(rnd(["You said that already.", "Yes, I heard you the first time.", "*stares* ...again?"]), -2);
+      out.say(out.line("repeat"), -2);
       out.ask = false;
-      return finish(m, out, voice);
+      return finish(m, out, voice, me);
     }
     mem.last = t;
 
@@ -489,39 +508,58 @@
     const askLike = /\b(?:do|would|did) you (?:like|love|enjoy|want|fancy|eat|ever)\b|\bare you (?:into|a fan of)\b|\bwhat do you think (?:of|about)\b|\bhow do you feel about\b|\bany good at\b|\bdo you do\b|\bthoughts on\b/.test(t);
     const invite = /\b(?:want to|shall we|should we|let's|lets|wanna|come|join me|would you like to|up for)\b/.test(t);
     const gift = a.action && /^\*\s*(?:gives?|hands?|offers?|brings?|tosses?|throws?|shares?|feeds?)\b/.test(t);
+    const youToo = /^(?:and |what about |how about |)(?:you|yourself|you too)\s*\?*$|^(?:wbu|hbu)\b/.test(t);
+    const askHate = /\b(?:do|would|did) you (?:hate|dislike|not like)\b|\bdon't you like\b/.test(t);
+    const whatHate = /\bwhat (?:do you|don't you) (?:hate|dislike|not like|like least)\b|\bwhat don't you like\b|\banything you (?:hate|don't like)\b|\bpet peeves?\b/.test(t);
+    if (!gift) mem.giftStreak = 0;
+    if (ent) mem.lastTopic = ent.c.id;
 
     // 1. Horse-meat jokes land badly
-    if (W.glue) { out.say(rnd(["That's not funny.", "Wow. Okay. *pins ears back*", "Do you know how many of my friends went to \"a farm upstate\"?"]), -40, "!?"); out.ask = false; return finish(m, out, voice); }
+    if (W.glue) { out.say(out.line("glue"), -40, "!?"); out.ask = false; return finish(m, out, voice, me); }
 
     // 2. Insults (but "you're not ugly" is fine)
     if (W.insult && !/\bnot\b|\bn't\b/.test(t) && !iHate) {
       mem.insults++;
-      if (mem.insults >= 2) { out.unmatch = true; out.say(rnd(["That's it. I'm done.", "Twice? No. Bye."]), -30); return finish(m, out, voice); }
-      out.say(rnd(["Excuse me?", "Wow. Rude.", "*pins ears back* Say that again, I dare you."]), -25, "!?");
+      if (mem.insults >= 2) { out.unmatch = true; out.say(out.line("insult.last"), -30); return finish(m, out, voice, me); }
+      out.say(out.line("insult"), -25, "!?");
       out.ask = false;
-      return finish(m, out, voice);
+      return finish(m, out, voice, me);
     }
 
     // 3. Gifts
     if (gift) {
+      // Each gift in a row is worth less, and the fifth one in a row is too many
+      mem.giftStreak = (mem.giftStreak || 0) + 1;
+      if (mem.giftStreak >= 5) { out.say(out.line("gift.tooMany"), -3); out.ask = false; return finish(m, out, voice, me); }
       const food = a.ents.filter(e => e.c.kind === "food" || e.c.kind === "bad")[0];
-      if (!food) out.say(rnd(["*sniffs it* ...Can I eat this?", "*nudges it with nose* What is it?"]), 1);
+      if (!food) out.say(out.line("gift.unknown"), 1);
       else {
         const op = opinion(h, food.c);
-        if (op === "bad") out.say(rnd(["I can't eat that! Are you trying to give me colic?", "*backs away* That's not horse food."]), -8, "!?");
-        else if (op === "hate") out.say(`${cap(food.c.label)}? I can't stand ${food.c.label}.` + (mem.revealedHate ? " I told you that." : ""), -10);
-        else if (op === "love" || op === "secret") { out.say(rnd(["*munches happily* You remembered!", "*crunch crunch* This is the best day of my life."]), 12, "♥"); out.mood = "food"; }
-        else out.say(rnd(["*crunch* Thanks!", "*takes it gently* Ooh, thank you."]), 6, "♥");
+        const fv = { x: food.c.label, word: food.word };
+        if (op === "bad") out.say(out.line("gift.bad", fv), -8, "!?");
+        else if (op === "hate") out.say(out.line("gift.hate", fv) + (mem.revealedHate ? " " + out.line("gift.hate.again", fv) : ""), -10);
+        else if (op === "love" || op === "secret") { out.say(out.line("gift.love", fv), 12, "♥"); out.mood = "food"; }
+        else out.say(out.line("gift.ok", fv), 6, "♥");
       }
+      if (out.vibe > 0) out.vibe = Math.round(out.vibe * [1, 0.5, 0.25, 0][mem.giftStreak - 1]);
       out.ask = false;
-      return finish(m, out, voice);
+      return finish(m, out, voice, me);
     }
 
-    // 4. Statements: "I love mud", "I hate carrots", "apples are my favourite"
+    // 4. Statements: "I love mud", "I hate carrots", "apples are my favourite".
+    // Two things at once ("I love carrots and mud") get a reaction each.
+    // shortcut: "I love carrots but hate mud" counts as liking both; split on "but" if it matters.
     if ((iLike || iHate) && ent && !a.isQ) {
-      aboutStatement(h, ent, iLike && !iHate, out, mem);
+      a.ents.slice(0, 2).forEach(e => { if (!out.unmatch) aboutStatement(h, e, iLike && !iHate, out, mem); });
       if (mem.pending) mem.pending = null;
-      return finish(m, out, voice);
+      return finish(m, out, voice, me);
+    }
+
+    // "You?" after the horse asked you something: it answers its own question
+    if (youToo) {
+      selfAnswer(m, out);
+      out.ask = false;
+      return finish(m, out, voice, me);
     }
 
     // 5. Answers to the horse's last question
@@ -529,17 +567,17 @@
     // except "great, thanks" to "how are you", which is one)
     const moodAnswer = mem.pending && mem.pending.type === "mood" && (W.happy || W.sad);
     const smallTalk = (W.hello || W.bye || W.laugh || W.thanks || W.compliment || W.kiss || W.joke) && !a.ents.length && !moodAnswer;
-    if (mem.pending && !a.isQ && !smallTalk && answerPending(m, me, a, out)) return finish(m, out, voice);
+    if (mem.pending && !a.isQ && !smallTalk && answerPending(m, me, a, out)) return finish(m, out, voice, me);
 
     // 6. Actions like *nuzzles*
     if (a.action) {
       if (W.kiss) {
-        if (m.vibe >= 60) out.say(rnd(["*nuzzles back*", "*rests nose on your neck*", "*soft nicker*"]), 5, "♥");
-        else out.say(rnd(["*steps back* Whoa, easy. We just met.", "*flicks ears* Slow down."]), -3);
-      } else if (W.whinny) out.say(rnd(["*whinnies back*", "*nickers*", "*snorts playfully*"]), 2);
-      else out.say(rnd(["*tilts head*", "*paws the ground*", "*swishes tail*"]), 1);
+        if (m.vibe >= 60) out.say(out.line("action.kiss.yes"), 5, "♥");
+        else out.say(out.line("action.kiss.no"), -3);
+      } else if (W.whinny) out.say(out.line("action.whinny"), 2);
+      else out.say(out.line("action.other"), 1);
       out.ask = false;
-      return finish(m, out, voice);
+      return finish(m, out, voice, me);
     }
 
     // 7. Questions about the horse
@@ -555,153 +593,215 @@
     const myName = /\b(?:my name is|call me|i'm called|i am called)\s+([a-z]+)/.exec(t);
     const bot = /\bare you (?:a )?(?:bot|robot|ai|real|fake|human|a real horse)\b|\bcatfish/.test(t) || (W.bot && a.isQ);
 
+    // "Do you hate X?" and "what don't you like?"
+    if (askHate && ent) {
+      a.ents.slice(0, 2).forEach(e => {
+        const op = opinion(h, e.c), hv = { x: e.c.label, word: e.word };
+        if (op === "bad") out.say(out.line("like.bad", hv));
+        else if (op === "hate") { mem.revealedHate = true; learn(mem, "hates", e.c.label); out.say(out.line("hate.yes", hv), 2); }
+        else if (op === "love" || op === "secret") { learn(mem, "loves", e.c.label); out.say(out.line("hate.no.love", hv), 1); }
+        else out.say(out.line("hate.no", hv));
+      });
+      out.ask = false;
+      return finish(m, out, voice, me);
+    }
+    if (whatHate) {
+      const hated = h.prefs && h.prefs.hatesInterest;
+      const c = hated && CONCEPTS.filter(x => x.interest === hated)[0];
+      const label = c ? c.label : hated && hated.toLowerCase();
+      if (!hated) out.say(out.line("hates.none"));
+      else if (m.vibe >= 55) { mem.revealedHate = true; learn(mem, "hates", label); out.say(out.line("hates.reveal", { x: label }), 2); }
+      else out.say(out.line("hates.coy"));
+      return finish(m, out, voice, me);
+    }
+
     if (myName) {
       const orig = /\b(?:my name is|call me|i'm called|i am called)\s+([A-Za-z]+)/i.exec(a.raw);
       mem.nick = cap(orig ? orig[1] : myName[1]);
-      out.say(rnd([`Nice to meet you, ${mem.nick}.`, `${mem.nick}. I like it. Very strong name.`]), 2);
-      return finish(m, out, voice);
+      out.say(out.line("name.mine"), 2);
+      return finish(m, out, voice, me);
     }
-    if (bot) { out.say(rnd(["Last time I checked I had four legs and a tail.", "A bot? I just ate a whole hay net. Can a bot do that?"]), 0); return finish(m, out, voice); }
+    if (bot) { out.say(out.line("bot"), 0); return finish(m, out, voice, me); }
     if (howAreYou) {
-      out.say(rnd([
-        "Good! Just had a really satisfying roll.", "Pretty good. The farrier came and I only kicked once.",
-        "Tired. Someone left the gate open and I had to explore everything.", "Great, now that you're here.",
-      ]), 1);
-      out.say(rnd(["How about you?", "You?"]));
+      out.say(out.line(howAreYouKey(h)), 1);
+      out.say(out.line("howAreYou.back"));
       mem.pending = { type: "mood" };
       out.ask = false;
-      return finish(m, out, voice);
+      return finish(m, out, voice, me);
     }
     if (wyd) {
       const hr = new Date().getHours();
-      out.say(hr < 9 ? "Waiting for breakfast hay. It's late. Again." : hr < 13 ? "Standing in the field looking majestic." :
-        hr < 18 ? `Just finished some ${h.discipline.toLowerCase()}. Now I'm stuffing my face.` : hr < 22 ? "Dinner, then staring at the stars." :
-        "Trying to sleep standing up. Failing, clearly.", 1);
-      return finish(m, out, voice);
+      out.say(out.line(hr < 9 ? "wyd.early" : hr < 13 ? "wyd.morning" : hr < 18 ? "wyd.afternoon" : hr < 22 ? "wyd.evening" : "wyd.night"), 1);
+      return finish(m, out, voice, me);
     }
-    if (yourName) { out.say(mem.askedName ? `Still ${h.name}.` : `${h.name}. It's on my profile, silly.`); mem.askedName = true; return finish(m, out, voice); }
+    if (yourName) { out.say(out.line(mem.askedName ? "yourName.again" : "yourName")); mem.askedName = true; return finish(m, out, voice, me); }
     if (yourAge) {
       const gap = me.age - h.age;
-      out.say(`I'm ${h.age}.` + (Math.abs(gap) <= 2 ? " Same as you, basically." : gap > 0 ? " You're a bit older. I like that." : " You're younger than me. That's fine."));
-      return finish(m, out, voice);
+      out.say(out.line("age") + " " + out.line(Math.abs(gap) <= 2 ? "age.same" : gap > 0 ? "age.older" : "age.younger"));
+      return finish(m, out, voice, me);
     }
-    if (yourBreed) { out.say(`I'm a ${h.breed}. ${breedFact(h)}`, 1); return finish(m, out, voice); }
+    if (yourBreed) { out.say(out.line("breed", { fact: breedFact(h) }), 1); return finish(m, out, voice, me); }
     if (yourHeight) {
       const diff = me.inches - h.inches;
-      out.say(`${D.fmtHeight(h.inches)}.` + (Math.abs(diff) <= 1 ? " Same as you!" : diff > 0 ? " You're taller than me, which is nice." : " So I'd be looking down at you. Sorry."));
-      return finish(m, out, voice);
+      out.say(out.line("height") + " " + out.line(Math.abs(diff) <= 1 ? "height.same" : diff > 0 ? "height.taller" : "height.shorter"));
+      return finish(m, out, voice, me);
     }
-    if (where) { out.say(rnd([`About ${D.fmtDist(h.distance)} from you.`, `${D.fmtDist(h.distance)} away. Walkable. Trottable, even.`])); return finish(m, out, voice); }
+    if (where) { out.say(out.line("where")); return finish(m, out, voice, me); }
     if (fav) {
-      if (/snack|food|treat|eat/.test(t)) out.say(`${cap(D.favouriteFood(h))}. Obviously.`);
-      else if (/colou?r|coat/.test(t)) out.say(`${A.COATS[(h.art && h.art.coat) || "bay"].name}. Mine, obviously.`);
-      else if (/place|spot|field/.test(t)) out.say("The far corner of the field, under the big oak.");
-      else if (/song|music/.test(t)) out.say(h.likes.indexOf("Country music") >= 0 ? "Anything country." : h.likes.indexOf("Classical music") >= 0 ? "Mozart. Always Mozart." : "Anything the radio in the barn plays.");
-      else out.say(`${cap(h.likes[0].toLowerCase())}, probably. Then ${h.likes[1].toLowerCase()}.`);
-      return finish(m, out, voice);
+      if (/snack|food|treat|eat/.test(t)) out.say(out.line("fav.food"));
+      else if (/colou?r|coat/.test(t)) out.say(out.line("fav.colour"));
+      else if (/place|spot|field/.test(t)) out.say(out.line("fav.place"));
+      else if (/song|music/.test(t)) out.say(out.line(h.likes.indexOf("Country music") >= 0 ? "fav.music.country" : h.likes.indexOf("Classical music") >= 0 ? "fav.music.classical" : "fav.music.other"));
+      else out.say(out.line("fav.other"));
+      return finish(m, out, voice, me);
     }
-    if (hobby) { out.say(`${h.discipline}, mostly. And ${h.likes[0].toLowerCase()} and ${h.likes[1].toLowerCase()}.`, 1); return finish(m, out, voice); }
+    if (hobby) { out.say(out.line("hobby"), 1); return finish(m, out, voice, me); }
 
-    // 8. "Do you like X?"
-    if (askLike && ent && !invite) { doYouLike(h, ent, out, mem); out.ask = false; return finish(m, out, voice); }
+    // 8. "Do you like X?" (and "do you like carrots and apples?")
+    if (askLike && ent && !invite) {
+      a.ents.slice(0, 2).forEach(e => doYouLike(h, e, out, mem, out.askedBack));
+      out.ask = false;
+      return finish(m, out, voice, me);
+    }
 
     // 9. Dates and invitations
     const act = a.ents.filter(e => e.c.kind === "act")[0];
     if (invite && act && !W.date) {
       const op = opinion(h, act.c);
-      if (op === "hate") out.say(rnd([`${cap(act.c.label)}? With me? Absolutely not.`, `Anything but ${act.c.label}.`]), -6);
-      else if (op === "love" || op === "secret") out.say(rnd([`YES. When?`, `I thought you'd never ask. ${cap(act.c.label)} it is.`]), 8, "♥");
-      else out.say(rnd(["Sure, why not.", "Okay! As long as there are snacks after."]), 3);
-      return finish(m, out, voice);
+      const av = { x: act.c.label };
+      if (op === "hate") out.say(out.line("invite.hate", av), -6);
+      else if (op === "love" || op === "secret") out.say(out.line("invite.love", av), 8, "♥");
+      else out.say(out.line("invite.ok", av), 3);
+      return finish(m, out, voice, me);
     }
     if (W.date && (invite || a.isQ)) {
       if (dateOver(mem)) { // that one's been and gone, so a new one can be planned
         mem.lastDate = mem.date;
         delete mem.date; delete mem.datePlace; delete mem.dateAt; delete mem.calEventId;
       }
-      if (mem.date) out.say(rnd([`We already have a date at ${mem.date}! Don't be late.`, `See you at ${mem.date}. I'll be the one pretending not to look.`]), 2);
+      if (mem.date) out.say(out.line("date.already"), 2);
       else if (m.vibe >= 62) {
-        const likes = h.likes;
-        const place = likes.indexOf("Beach rides") >= 0 ? "the beach" : likes.indexOf("Stargazing") >= 0 ? "the top field" :
-          likes.indexOf("Hay nets") >= 0 ? "the hay barn" : rnd(["the water trough", "the far paddock gate", "the big oak tree"]);
-        const when = rnd(["at feeding time", "at sunset", "tomorrow morning", "after training"]);
+        const liked = Object.keys(K.datePlaces).filter(i => h.likes.indexOf(i) >= 0)[0];
+        const place = liked ? K.datePlaces[liked] : out.line("date.place");
+        const when = rnd(Object.keys(DATE_TIMES));
         mem.date = `${place} ${when}`;
         mem.datePlace = place;
         mem.dateAt = dateTime(when);
         out.date = mem.date;
-        out.say(rnd([`Yes. ${cap(place)}, ${when}?`, `I'd like that. Meet me at ${place}, ${when}.`]), 8, "♥");
+        out.say(out.line("date.yes", { place, when }), 8, "♥");
         out.ask = false;
-      } else if (m.vibe >= 40) out.say(rnd(["Let's chat a bit more first.", "Maybe. Convince me.", "Slow down, cowboy."]), -1);
-      else out.say(rnd(["I don't think so.", "Hmm. No."]), -3);
-      return finish(m, out, voice);
+      } else if (m.vibe >= 40) out.say(out.line("date.maybe"), -1);
+      else out.say(out.line("date.no"), -3);
+      return finish(m, out, voice, me);
     }
 
     // 10. Compliments and affection
     if (W.compliment && !/\bnot\b|n't\b/.test(t)) {
       mem.compliments++;
-      if (mem.compliments >= 4) out.say(rnd(["Okay, okay. I get it. I'm gorgeous.", "Keep going, honestly."]), 1);
-      else { out.say(rnd(["*flicks ears shyly*", "*swishes tail* You're not so bad yourself.", "Stop it, I'm blushing under all this fur.", "I know. But thank you."]), 6, "♥"); out.mood = "shy"; }
-      return finish(m, out, voice);
+      if (mem.compliments >= 4) out.say(out.line("compliment.many"), 1);
+      else { out.say(out.line("compliment"), 6, "♥"); out.mood = "shy"; }
+      return finish(m, out, voice, me);
     }
     if (W.kiss) {
-      if (m.vibe >= 60) out.say(rnd(["*nuzzles you back*", "Okay, one boop. *boop*"]), 5, "♥");
-      else out.say(rnd(["Whoa, we just met.", "Buy me a carrot first."]), -2);
-      return finish(m, out, voice);
+      if (m.vibe >= 60) out.say(out.line("kiss.yes"), 5, "♥");
+      else out.say(out.line("kiss.no"), -2);
+      return finish(m, out, voice, me);
     }
 
     // 11. Small talk
-    if (W.joke && (a.isQ || /\btell\b|\bknow\b|\bjoke\b/.test(t))) {
-      const j = JOKES[mem.jokes % JOKES.length];
+    if (W.joke && (a.isQ || /\btell\b|\bknow\b|\bjoke\b/.test(t)) && K.jokes.length) {
+      const j = K.jokes[mem.jokes % K.jokes.length];
       mem.jokes++;
-      out.say(j[0]); out.say(j[1]); out.say("*snorts at own joke*");
+      j.forEach(s => out.say(out.fill(s)));
+      out.say(out.line("joke.after"));
       out.ask = false;
-      return finish(m, out, voice);
+      return finish(m, out, voice, me);
     }
-    if (W.laugh) { out.say(rnd(["Glad I amuse you.", "Hehe.", "*proud snort*", "I'm here all week."]), 3, "ha"); return finish(m, out, voice); }
-    if (W.thanks) { out.say(rnd(["Any time.", "You're welcome!", "Of course."]), 1); return finish(m, out, voice); }
-    if (W.sad && !a.isQ) { out.mood = "sad"; out.say(rnd(["*rests head on your shoulder* Want to talk about it?", "Oh no. Do you need a carrot? I'd share. Probably."]), 4); out.ask = false; return finish(m, out, voice); }
+    if (W.laugh) { out.say(out.line("laugh"), 3, "ha"); return finish(m, out, voice, me); }
+    if (W.thanks) { out.say(out.line("thanks"), 1); return finish(m, out, voice, me); }
+    if (W.sad && !a.isQ) { out.mood = "sad"; out.say(out.line("sad"), 4); out.ask = false; return finish(m, out, voice, me); }
     if (W.weather) {
       const muddy = opinion(h, BY_ID.mud);
-      out.say(/rain|storm/.test(t) ? (muddy === "love" || muddy === "secret" ? "Rain means mud. Mud means happiness." : "Rain means rugs. I hate rugs.")
-        : /cold|snow/.test(t) ? "Cold is fine. I have a built-in fur coat." : "Perfect weather for standing in the shade doing nothing.", 1);
-      return finish(m, out, voice);
+      out.say(out.line(/rain|storm/.test(t) ? (muddy === "love" || muddy === "secret" ? "weather.rain.mud" : "weather.rain")
+        : /cold|snow/.test(t) ? "weather.cold" : "weather.other"), 1);
+      return finish(m, out, voice, me);
     }
-    if (W.human) { out.say(rnd(["My human is nice. A bit obsessed with taking photos of me.", "Mine gives the best scratches, but sings while mucking out. Badly."]), 1); if (!mem.pending) { mem.pending = { type: "human" }; out.say("What's yours like?"); } out.ask = false; return finish(m, out, voice); }
-    if (W.bye) { out.say(rnd(["Bye! *trots off*", "Night! I sleep standing up, by the way.", "Talk soon. Don't forget me."])); out.ask = false; return finish(m, out, voice); }
+    if (W.human) { out.say(out.line("human"), 1); if (!mem.pending) { mem.pending = { type: "human" }; out.say(out.line("human.ask")); } out.ask = false; return finish(m, out, voice, me); }
+    if (W.bye) { out.say(out.line("bye")); out.ask = false; return finish(m, out, voice, me); }
     if (W.hello) {
-      if (mem.userGreeted) out.say(rnd(["Hi again!", "Hello hello.", "You already said hi. Hi though."]));
-      else if (mem.greeted) out.say(rnd(["Hi!", "Hey you.", "There you are."]), 1); // horse spoke first
-      else out.say(fill(rnd(v.greet), h, mem));
+      if (mem.userGreeted) out.say(out.line("hello.again"));
+      else if (mem.greeted) out.say(out.line("hello.back"), 1); // horse spoke first
+      else out.say(out.fill(rnd(v.greet)));
       mem.greeted = mem.userGreeted = true;
       out.ask = true;
-      return finish(m, out, voice);
+      return finish(m, out, voice, me);
     }
 
     // 12. Something mentioned in passing
     if (ent) {
       const op = opinion(h, ent.c);
-      const x = ent.c.label;
-      if (ent.c.kind === "bad") out.say(`${cap(ent.word)}? Not for horses, sadly.`);
-      else if (op === "hate") out.say(rnd([`Can we not talk about ${x}?`, `Ugh. ${cap(x)}.`]), mem.revealedHate ? -10 : -5, "!?");
-      else if (op === "love" || op === "secret") out.say(rnd([`${cap(x)}!! You've got my attention.`, `Did someone say ${x}? *ears up*`]), 4);
-      else if (ent.c.kind === "food") out.say(fill(rnd(v.snack), h, mem));
-      else if (ent.c.id === "ride" || ent.c.id === "jump" || ent.c.id === "dressage") out.say(fill(rnd(v.ride), h, mem));
-      else out.say(`${cap(x)}? Tell me more.`);
-      return finish(m, out, voice);
+      const ev = { x: ent.c.label, word: ent.word };
+      if (ent.c.kind === "bad") out.say(out.line("passing.bad", ev));
+      else if (op === "hate") out.say(out.line("passing.hate", ev), mem.revealedHate ? -10 : -5, "!?");
+      else if (op === "love" || op === "secret") out.say(out.line("passing.love", ev), 4);
+      else if (ent.c.kind === "food") out.say(out.fill(rnd(v.snack)));
+      else if (ent.c.id === "ride" || ent.c.id === "jump" || ent.c.id === "dressage") out.say(out.fill(rnd(v.ride)));
+      else out.say(out.line("passing.other", ev));
+      return finish(m, out, voice, me);
     }
-    if ((W.yes || W.no) && !a.isQ) { out.say(W.yes ? rnd(["Okay!", "Great.", "Love it."]) : rnd(["Hmm, okay.", "Fair.", "Oh."])); return finish(m, out, voice); }
+    if ((W.yes || W.no) && !a.isQ) { out.say(out.line(W.yes ? "yes" : "no")); return finish(m, out, voice, me); }
 
     // 13. Nothing recognised
     if (a.isQ) out.mood = "shrug";
-    if (a.isQ) out.say(rnd(["Hmm. Let me think about that while I chew.", "Neigh. Or yes. I haven't decided.", "Ask me again when I'm not eating.", "Good question. No idea."]));
-    else if (mem.told && Object.keys(mem.told).some(k => mem.told[k] === "love") && chance(0.3)) {
-      const k = Object.keys(mem.told).filter(k2 => mem.told[k2] === "love")[0];
-      out.say(`Still thinking about how you like ${BY_ID[k] ? BY_ID[k].label : "that"}.`, 1);
-    } else {
-      out.say(fill(v.lines[mem.turns % v.lines.length], h, mem));
+    if (a.isQ) out.say(out.line("unknown.question"));
+    else {
+      const story = chance(0.45) && nextStory(m);
+      const back = !story && chance(0.35) && callback(m, out);
+      if (story) story.forEach((s, i) => out.say(out.fill(s), i ? 0 : 1));
+      else if (back) out.say(back, 1);
+      else out.say(out.fill(v.lines[mem.turns % v.lines.length]));
+      if (story || back) { out.ask = false; return finish(m, out, voice, me); }
     }
     out.ask = true;
-    return finish(m, out, voice);
+    return finish(m, out, voice, me);
+  }
+
+  /* A story the horse hasn't told yet: about its own likes first, then its discipline,
+     then anything. Each one is a few bubbles. */
+  function nextStory(m) {
+    const S = K.stories || {}, mem = m.mem, h = m.horse;
+    mem.stories = mem.stories || [];
+    const keys = h.likes.filter(l => S[l]).concat(["disc", "any"].filter(k => S[k]));
+    for (let i = 0; i < keys.length; i++) {
+      const list = S[keys[i]];
+      for (let j = 0; j < list.length; j++) {
+        const id = keys[i] + "#" + j;
+        if (mem.stories.indexOf(id) < 0 && list[j] && list[j].length) { mem.stories.push(id); return list[j]; }
+      }
+    }
+    return null;
+  }
+
+  /* Something you told the horse earlier, brought up again. Each memory once. */
+  function callback(m, out) {
+    const mem = m.mem, told = mem.told || {};
+    mem.calledBack = mem.calledBack || [];
+    const options = [];
+    Object.keys(told).forEach(k => {
+      const c = BY_ID[k.replace(/^(?:yn|pick):/, "")];
+      if (k === "food" && BY_ID[told.food]) options.push(["food", "callback.food", BY_ID[told.food].label]);
+      else if (k === "clock") options.push(["clock", "callback." + told.clock, ""]);
+      else if (k === "human") options.push(["human", "callback.human", ""]);
+      else if (k === "sad" && told.sad === today()) options.push(["sad:" + told.sad, "callback.sad", ""]);
+      else if (k.indexOf("yn:") === 0 && told[k] === "yes" && c) options.push([k, "callback.yes", c.label]);
+      else if (k.indexOf("pick:") === 0 && c) options.push([k, "callback.pick", c.label]);
+      else if (told[k] === "love" && c) options.push([k, "callback.love", c.label]);
+    });
+    const left = options.filter(o => mem.calledBack.indexOf(o[0]) < 0 && K.lines[o[1]]);
+    if (!left.length) return "";
+    const o = rnd(left);
+    mem.calledBack.push(o[0]);
+    return out.line(o[1], { x: o[2] });
   }
 
   /* "at sunset" -> the next sunset-ish time, as a timestamp */
@@ -714,81 +814,150 @@
     return d.getTime();
   }
 
-  function fill(line, h, mem) {
-    return line.replace("{food}", D.favouriteFood(h)).replace("{disc}", h.discipline).replace("{me}", (mem && mem.nick) || "you");
-  }
-
-  function finish(m, out, voice) {
-    const mem = m.mem;
+  function finish(m, out, voice, me) {
+    const mem = m.mem, h = m.horse;
+    // A grumpy day makes good things count for less, a playful one for more
+    const gain = moodOfDay(h).gain;
+    if (out.vibe > 0 && typeof gain === "number") out.vibe = Math.round(out.vibe * gain);
     m.vibe = Math.max(0, Math.min(100, m.vibe + out.vibe));
     if (!out.unmatch && m.vibe <= 8) {
       out.unmatch = true;
-      out.replies.push(rnd(["I don't think this is working out.", "Yeah, no. Good luck out there."]));
+      out.replies.push(out.line("unmatch.low"));
     }
-    // Keep the conversation going with a question of its own
-    if (!out.unmatch && out.ask !== false && !mem.pending && (out.ask === true ? chance(0.7) : chance(0.3))) {
-      const q = nextQuestion(m);
-      if (q) out.replies.push(q);
+    // A follow-up to the answer you just gave ("Yes, I jump" -> "How high?")
+    let asked = false;
+    if (!out.unmatch && out.followUp && !mem.pending) {
+      const q = nextQuestion(m, me, out.followUp);
+      if (q) { out.replies.push(out.fill(q)); asked = true; }
+    }
+    // Keep the conversation going with a question of its own, or something you said earlier
+    if (!asked && !out.unmatch && out.ask !== false && !mem.pending) {
+      if (out.ask === true ? chance(0.7) : chance(0.3)) {
+        const q = nextQuestion(m, me);
+        if (q) out.replies.push(out.fill(q));
+      } else if (mem.turns >= 4 && chance(0.15)) {
+        const back = callback(m, out);
+        if (back) out.replies.push(back);
+      }
     }
     // Now and then, a horse that's into you says so
-    if (!out.unmatch && m.vibe >= 85 && !mem.saidLike) { mem.saidLike = true; out.replies.push("I really like talking to you, by the way."); }
-    out.replies = out.replies.map(r => style(r, voice));
+    if (!out.unmatch && m.vibe >= 85 && !mem.saidLike) { mem.saidLike = true; out.replies.push(out.line("saidLike")); }
+    out.replies = out.replies.filter(Boolean).map(r => style(r, voice));
+    // Now and then it uses your name: "Dave, same!! I love mud." After style(), so no
+    // opener ends up in front of it and lowercases it.
+    const nick = nickOf(m, me);
+    if (nick && !out.unmatch && chance(0.07)) {
+      const i = out.replies.findIndex(r => !/^\*/.test(r) && r.indexOf(nick) < 0 && r.indexOf(h.name) !== 0 && !/^(?:[A-Z]{2}|I\b|I')/.test(r));
+      const pre = i >= 0 && out.line("name.prefix", { nick });
+      if (pre) out.replies[i] = pre + out.replies[i].charAt(0).toLowerCase() + out.replies[i].slice(1);
+    }
+    if (out.moodFirst && !out.unmatch && out.replies.length) out.replies.unshift(style(out.moodFirst, voice));
     addFaces(out, voice);
-    delete out.say;
+    typo(out, voice);
+    delete out.say; delete out.line; delete out.fill;
     return out;
+  }
+
+  /* Some personalities fumble a word now and then, then send the *correction */
+  function typo(out, voice) {
+    const p = K.typos && K.typos[voice];
+    if (!p || !chance(p)) return;
+    for (let i = 0; i < out.replies.length; i++) {
+      const r = out.replies[i];
+      if (/^\*|\*$/.test(r)) continue;
+      const words = r.match(/[A-Za-z]{5,}/g);
+      if (!words) continue;
+      const w = rnd(words), j = 1 + Math.floor(Math.random() * (w.length - 3));
+      const wrong = w.slice(0, j) + w.charAt(j + 1) + w.charAt(j) + w.slice(j + 2);
+      if (wrong === w) continue;
+      out.replies[i] = r.replace(w, wrong);
+      out.replies.splice(i + 1, 0, "*" + w);
+      return;
+    }
   }
 
   /* First message from the horse when a chat opens empty */
   function opener(m, me) {
     init(m, me);
-    const h = m.horse, v = D.voiceFor(h);
+    const h = m.horse, v = D.voiceFor(h), voice = h.voice || "chill";
     m.mem.greeted = true;
-    const lines = [fill(rnd(v.greet), h, m.mem)];
+    const vars = varsFor(m, me);
+    const lines = [D.fill(rnd(v.greet), vars)];
+    if (m.mem.moodDay !== today()) { m.mem.moodDay = today(); lines.push(line("mood." + moodId(h) + ".first", vars, voice)); }
     const shared = me.interests.filter(i => h.likes.indexOf(i) >= 0)[0];
-    if (shared && chance(0.6)) lines.push(`I saw you like ${shared.toLowerCase()} too.`);
-    const q = nextQuestion(m);
-    if (q) lines.push(q);
-    return lines.map(l => style(l, h.voice));
+    if (shared && chance(0.6)) lines.push(line("opener.shared", Object.assign(vars, { shared: shared.toLowerCase() }), voice));
+    const q = nextQuestion(m, me);
+    if (q) lines.push(D.fill(q, vars));
+    const out = { replies: lines.filter(Boolean).map(l => style(l, voice)) };
+    addFaces(out, voice);
+    return out.replies;
   }
 
   /* Quick replies that fit what the horse just asked */
   function suggestions(m, me) {
     init(m, me);
     const p = m.mem.pending;
+    const chips = K.chips;
     if (p) {
-      switch (p.type) {
-        case "fav_food": return ["Carrots", "Apples", "Peppermints", "Sugar cubes", "Chocolate"];
-        case "choice": return [cap(BY_ID[p.a].label), cap(BY_ID[p.b].label), "Both!"];
-        case "yesno": case "likeback": return ["Yes!", "No", "Sometimes"];
-        case "morning_night": return ["Morning horse", "Night horse"];
-        case "fun": return ["Long gallops", "Napping", "Jumping", "Rolling in mud", "Trail rides"];
-        case "mood": return ["Great, thanks!", "Bit tired", "Pretty bored"];
-        case "human": return ["They're the best", "They're a lot", "They sing badly"];
-      }
+      if (p.type === "choice" && BY_ID[p.a] && BY_ID[p.b]) return chips.choice.map(c => D.fill(c, { a: BY_ID[p.a].label, b: BY_ID[p.b].label }));
+      if (p.type !== "choice" && chips[p.type]) return chips[p.type].slice();
     }
-    const h = m.horse;
-    const topic = rnd(D.INTERESTS).toLowerCase();
-    const mine = me.interests.length ? rnd(me.interests).toLowerCase() : "long gallops";
-    const pool = [
-      "How are you?", "What do you do for fun?", `Do you like ${topic}?`, `I love ${mine}`, "How tall are you?",
-      "Tell me a joke", "Want to meet up?", "You're gorgeous", "What's your favourite snack?", "What breed are you?",
-      "*nuzzles*", "What are you up to?",
-    ];
+    // Lean toward what the horse likes, and once it's into you, hint at its secret likes
+    const h = m.horse, prefs = h.prefs || {};
+    const secret = (prefs.lovesInterests || []).filter(i => h.likes.indexOf(i) < 0);
+    const warm = m.vibe >= 70 && secret.length;
+    const roll = Math.random();
+    const topic = rnd(warm && roll < 0.5 ? secret : roll < 0.75 && h.likes.length ? h.likes : D.INTERESTS).toLowerCase();
+    const good = me.interests.filter(i => h.likes.indexOf(i) >= 0 || (warm && secret.indexOf(i) >= 0));
+    const mine = (good.length && chance(0.6) ? rnd(good) : me.interests.length ? rnd(me.interests) : "long gallops").toLowerCase();
+    const pool = chips.any.map(c => D.fill(c, { topic, mine }));
+    const dateChip = chips.date[0];
     const out = [];
     while (out.length < 5 && pool.length) out.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
-    if (m.vibe >= 62 && !m.mem.date && out.indexOf("Want to meet up?") < 0) out[0] = "Want to meet up?";
-    if (!m.messages || !m.messages.length) out.unshift("*whinnies*");
+    if (dateChip && m.vibe >= 62 && !m.mem.date && out.indexOf(dateChip) < 0) out[0] = dateChip;
+    if (!m.messages || !m.messages.length) chips.first.slice().reverse().forEach(c => out.unshift(c));
     return out;
   }
 
-  const GIFTS = [
-    { label: "Carrot", text: "*gives you a carrot*" },
-    { label: "Apple", text: "*gives you an apple*" },
-    { label: "Peppermint", text: "*gives you a peppermint*" },
-    { label: "Sugar cube", text: "*gives you a sugar cube*" },
-    { label: "Watermelon", text: "*gives you a slice of watermelon*" },
-    { label: "Chocolate", text: "*gives you some chocolate*" },
-  ];
+  /* Once a date's time has passed, the horse says how it went. Not adding it to the
+     calendar counts as standing it up. Returns { replies, vibe, unmatch } or null. */
+  function afterDate(m, me) {
+    init(m, me);
+    const mem = m.mem, h = m.horse, voice = h.voice || "chill";
+    if (m.status === "unmatched" || !dateOver(mem)) return null;
+    const added = !!(mem.calEventId || mem.calWeb);
+    const key = !added ? "date.after.stood" : m.vibe >= 55 ? "date.after.good" : "date.after.meh";
+    const out = {
+      replies: [], vibe: !added ? -15 : m.vibe >= 55 ? 8 : -4, unmatch: false, react: null, ask: false,
+      line(k, extra) { return line(k, Object.assign(varsFor(m, me), extra), voice); },
+      fill(text) { return D.fill(text, varsFor(m, me)); },
+    };
+    out.mood = out.vibe > 0 ? "love" : "sad";
+    out.replies.push(out.line(key));
+    // That date is done: a new one can be planned
+    mem.lastDate = mem.date;
+    delete mem.date; delete mem.datePlace; delete mem.dateAt; delete mem.calEventId; delete mem.calWeb;
+    const r = finish(m, out, voice, me);
+    return { replies: r.replies, vibe: r.vibe, unmatch: r.unmatch };
+  }
 
-  window.HorseChat = { init, respond, opener, suggestions, GIFTS, settings, upcoming };
+  /* A nudge when you leave the horse's question unanswered: only personalities that
+     have nudges in content.js, and once per question */
+  function nudge(m, me) {
+    init(m, me);
+    const mem = m.mem, h = m.horse, voice = h.voice || "chill";
+    const pool = K.nudges && K.nudges[voice];
+    if (!pool || !pool.length || !mem.pending || m.status === "unmatched" || ghosting(m)) return null;
+    const mark = mem.asked.length + ":" + mem.pending.type;
+    if (mem.nudged === mark) return null;
+    mem.nudged = mark;
+    return [style(D.fill(rnd(pool), varsFor(m, me)), voice)];
+  }
+
+  const GIFTS = K.gifts;
+
+  window.HorseChat = {
+    init, respond, opener, suggestions, GIFTS, settings, upcoming, ghosting,
+    afterDate, nudge, moodStatus, typingSpeed,
+  };
 })();
