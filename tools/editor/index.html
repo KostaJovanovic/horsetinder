@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Horse Tinder content editor</title>
+<link rel="icon" href="/www/icon.svg" type="image/svg+xml">
 <style>
   :root { --ink: #2b2118; --muted: #7a6a5a; --line: #e2d6c6; --ground: #f6efe4; --surface: #fffdf9; --leather: #8a4b24; --warn: #b3261e; --ok: #2e7d32; }
   * { box-sizing: border-box; }
@@ -69,6 +70,10 @@
   .help code { padding: 1px 5px; border-radius: 4px; background: var(--ground); font-size: 0.85rem; }
   .help td { padding: 3px 12px 3px 0; vertical-align: top; }
   @media (max-width: 760px) {
+    header { flex-wrap: wrap; }
+    header h1 { flex: 1 1 auto; }
+    #search { order: 9; flex-basis: 100%; max-width: none; }
+    #status { flex: 0 1 auto; }
     .layout { display: block; }
     nav { position: static; width: auto; max-height: none; padding: 8px; display: flex; flex-wrap: wrap; gap: 2px; }
     nav h2 { width: 100%; }
