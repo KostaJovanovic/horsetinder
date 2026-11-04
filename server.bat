@@ -24,26 +24,14 @@ powershell -NoProfile -Command ^
   "    }" ^
   "  }"
 
-rem Find local IP for phone access
-set LOCAL_IP=
-for /f "tokens=2 delims=:" %%a in ('ipconfig ^| findstr /c:"IPv4"') do (
-  if not defined LOCAL_IP (
-    for /f "tokens=* delims= " %%b in ("%%a") do set "LOCAL_IP=%%b"
-  )
-)
-
 echo.
-echo ============================================
-echo   Local:   http://localhost:%PORT%
-echo   Network: http://%LOCAL_IP%:%PORT%
-echo.
-echo   Scan the QR below to open it on your phone.
-echo   Phone must be on the same Wi-Fi.
-echo ============================================
+echo   Local: http://localhost:%PORT%
+echo   Phone: scan the QR below (same Wi-Fi)
 echo.
 
 start "" "http://localhost:%PORT%"
 rem tools\serve.py serves www\ - the same files the APK carries - and prints a
-rem scannable QR for the Network URL (LOCAL_IP passed in so it doesn't guess).
+rem QR for the LAN address. It finds that address from the network route, which
+rem beats the first "IPv4" line of ipconfig (often a WSL or Hyper-V adapter).
 python tools\serve.py %PORT% %LOCAL_IP%
 pause

@@ -5,6 +5,9 @@ composite), renders them with headless Edge, and resizes into the Android mipmap
   - ic_launcher.png / ic_launcher_round.png   legacy icons (Android 7.1 and older)
   - ic_launcher_foreground.png                adaptive icon foreground (Android 8+)
 The adaptive background is a flat colour in values/ic_launcher_background.xml.
+It also writes the website's icons into www/: icon.svg (favicon), icon-192/512.png,
+apple-touch-icon.png, and icon-maskable-512.png (the full 108 canvas, so a phone
+can cut any shape out of it and the head stays inside).
 
 Run from anywhere:  python resources/make_icons.py
 """
@@ -16,6 +19,7 @@ from PIL import Image, ImageDraw
 
 HERE = Path(__file__).resolve().parent
 RES = HERE.parent / "android" / "app" / "src" / "main" / "res"
+WWW = HERE.parent / "www"
 EDGE = r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
 
 BG = "#7A3E1D"      # --leather
@@ -70,11 +74,13 @@ SOURCES = {
 
 
 def render(svg_path, png_path):
+    # Newer headless Edge gives a viewport smaller than --window-size, which left a
+    # white strip on the right and bottom. Shoot a bigger window, keep the 1024 corner.
     subprocess.run([EDGE, "--headless=new", "--disable-gpu", "--hide-scrollbars",
-                    "--default-background-color=00000000", "--window-size=1024,1024",
+                    "--default-background-color=00000000", "--window-size=1280,1280",
                     f"--screenshot={png_path}", svg_path.as_uri()],
                    check=True, capture_output=True)
-    return Image.open(png_path).convert("RGBA")
+    return Image.open(png_path).convert("RGBA").crop((0, 0, 1024, 1024))
 
 
 def mask(img, shape):
@@ -95,9 +101,19 @@ def main():
     for name, text in SOURCES.items():
         (HERE / name).write_text(text, encoding="utf-8")
 
+    (WWW / "icon.svg").write_text(SOURCES["icon.svg"], encoding="utf-8")
+
     with tempfile.TemporaryDirectory() as tmp:
         full = render(HERE / "icon.svg", Path(tmp) / "full.png")
         fg = render(HERE / "icon-foreground.svg", Path(tmp) / "fg.png")
+        maskable_svg = Path(tmp) / "maskable.svg"
+        maskable_svg.write_text(svg(BACKGROUND + HORSE, defs=GLOW), encoding="utf-8")
+        maskable = render(maskable_svg, Path(tmp) / "maskable.png")
+
+    web = {"apple-touch-icon.png": (full, 180), "icon-192.png": (full, 192),
+           "icon-512.png": (full, 512), "icon-maskable-512.png": (maskable, 512)}
+    for name, (img, size) in web.items():
+        img.resize((size, size), Image.LANCZOS).save(WWW / name, optimize=True)
 
     full.save(HERE / "icon-1024.png")
     densities = {"mdpi": 1, "hdpi": 1.5, "xhdpi": 2, "xxhdpi": 3, "xxxhdpi": 4}
@@ -108,7 +124,7 @@ def main():
         mask(legacy, "round").save(folder / "ic_launcher_round.png", optimize=True)
         fg.resize((round(108 * k),) * 2, Image.LANCZOS).save(folder / "ic_launcher_foreground.png", optimize=True)
 
-    print("icons written to", RES)
+    print("icons written to", RES, "and", WWW)
 
 
 if __name__ == "__main__":

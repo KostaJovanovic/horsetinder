@@ -1,25 +1,43 @@
 # Horse Tinder
 
-Tinder for horses. A static site in `www/` (vanilla HTML, CSS and JS, written for
-Chrome 62 so it runs in the Sunmi V2's WebView), wrapped for Android with
-Capacitor 8.
+Tinder for horses. A website first: a static site in `www/` (vanilla HTML, CSS and
+JS, no build step), live at **https://horsetinder.valjdakosta.com** on Cloudflare Pages.
+Everything a player makes stays in their browser's storage; Settings, Data saves
+it to a file and loads it back, on the same device or another one. The same
+`www/` is also wrapped for Android with Capacitor 8. The JS is written for
+Chrome 62, so it runs in the Sunmi V2's WebView.
+
+## Website
+
+Cloudflare Pages publishes `www/` from this repo. There is no build step; set the
+build command to `npm test` so a broken chat never goes live.
+
+In a browser, "Add date to calendar" downloads a `.ics` file. The Android app
+writes into the phone's calendar instead, and updates itself (below).
 
 ## Scripts
 
 | | |
 |---|---|
 | `server.bat` | Serves `www/` on port 46773 and prints a QR code for opening it on a phone on the same Wi-Fi |
+| `npm test` | Chat checks: every quick reply answers its question, past dates end (`tools/test-chat.js`) |
 | `save.bat` | Git menu: commit, save (commit + push), release, signed APK, pull, push, keystore |
+| `python resources/make_icons.py` | Redraws the Android launcher icons and the website's icons from one design |
+
+## Android app
 
 Every commit through `save.bat` stamps `www/js/version.js`. The app's About line
 shows the version, and `android/app/build.gradle` reads it: versionCode is the
 commit count and versionName is the label (`0.12`). Android refuses an update
 whose versionCode doesn't grow, so commit through `save.bat`.
 
-## Builds
+### Builds
 
 - **Debug:** `npm run sync`, then `gradlew assembleDebug` in `android/`. No update
-  feed, so it never goes online.
+  feed, so it never goes online. Gradle needs JDK 21: point `JAVA_HOME` at it
+  (`%USERPROFILE%\.jdks\jdk-21...`). `save.bat` finds one on its own.
+- **Tests:** `npm test`, and `gradlew testDebugUnitTest` for the updater's version
+  compare. Both run before every signed build, here and on GitHub.
 - **Signed, local:** `save.bat apk`. Writes `dist/horsetinder-android-<version>.apk`
   and installs it on any phone connected over USB.
 - **Signed, GitHub:** `save.bat release` builds the signed APK locally first (a
@@ -32,7 +50,7 @@ A phone with a debug build can't update to a signed one, because the signing
 keys differ. `save.bat` asks before uninstalling it, since uninstalling deletes
 the app's data on that phone.
 
-## Updates
+### Updates
 
 Signed builds check the latest release in `KostaJovanovic/horsetinder-release`
 at startup, at most every 30 minutes (`UpdatePlugin.java`). That repo is public
@@ -44,7 +62,7 @@ signature. Settings, Updates, **Check** asks right away.
 
 That check is the only thing the app uses the internet for.
 
-## One-time setup
+### One-time setup
 
 1. **Signing key:** run `save.bat keystore`. It creates
    `%USERPROFILE%\.keystores\horsetinder-release.jks` (outside the repo) and

@@ -4,26 +4,14 @@
   const A = window.HorseArt;
   const pick = A.pick;
 
-  // [label, words that count as mentioning it in chat]
+  // What chat words count as each interest lives in chat.js (CONCEPTS)
   const INTERESTS = [
-    ["Apples", "apples?"], ["Carrots", "carrots?"], ["Peppermints", "mints?"], ["Sugar cubes", "sugar"],
-    ["Rolling in mud", "mud|muddy"], ["Long gallops", "gallop(s|ing)?"], ["Trail rides", "trails?"], ["Jumping", "jump(s|ing)?"],
-    ["Dressage", "dressage"], ["Napping standing up", "naps?|napping"], ["Swimming", "swim(s|ming)?"], ["Being groomed", "groom(ed|ing)?|brush(ed|ing)?"],
-    ["Hay nets", "hay"], ["Beach rides", "beach"], ["Snow days", "snow"], ["Parades", "parade"],
-    ["Pony Club kids", "kids?|pony club"], ["Country music", "country"], ["Classical music", "classical|mozart|bach"],
-    ["Spooking at bags", "spook|bags?"], ["Sunbathing", "sunbath|sunshine"], ["Goats", "goats?"], ["Barn cats", "cats?"],
-    ["Racing", "rac(e|es|ing)"], ["Stargazing", "stars?|stargaz"], ["Mutual grooming", "scratch"],
-    ["Horse shows", "shows?|ribbons?|rosettes?"], ["Rain rugs", "rugs?|blankets?"],
+    "Apples", "Carrots", "Peppermints", "Sugar cubes", "Rolling in mud", "Long gallops", "Trail rides", "Jumping",
+    "Dressage", "Napping standing up", "Swimming", "Being groomed", "Hay nets", "Beach rides", "Snow days", "Parades",
+    "Pony Club kids", "Country music", "Classical music", "Spooking at bags", "Sunbathing", "Goats", "Barn cats",
+    "Racing", "Stargazing", "Mutual grooming", "Horse shows", "Rain rugs",
   ];
-  const INTEREST_NAMES = INTERESTS.map(i => i[0]);
   const FOODS = ["Apples", "Carrots", "Peppermints", "Sugar cubes", "Hay nets"];
-
-  function interestRegex(name) {
-    const row = INTERESTS.filter(i => i[0] === name)[0];
-    // The full name anywhere ("peppermints"), or a keyword at the start of a word ("mints")
-    const full = name.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    return new RegExp("(" + full + ")|\\b(" + (row ? row[1] : full) + ")\\b", "i");
-  }
 
   const SEXES = { mare: "Mare", stallion: "Stallion", gelding: "Gelding" };
   const LOOKING = {
@@ -97,6 +85,97 @@
     h => `Once ate an entire ${pick(Math.random, ["hat", "rosette", "lead rope", "picnic"])}. No regrets.`,
   ];
 
+  // ---------- Profile prompts ----------
+  /* Questions a profile can answer, with answer templates for the horses. The player picks
+     from the same questions in setup. */
+  const low = s => s.toLowerCase();
+  const PROMPTS = [
+    { q: "My simple pleasures", a: [
+      h => `${h.likes[0]}, ${low(h.likes[1])} and a good roll in the dust.`,
+      h => `Fresh hay, a sunny paddock and ${low(h.likes[2])}.`,
+      () => "The first bite of spring grass. Nothing comes close." ] },
+    { q: "I go crazy for", a: [
+      h => `${cap(favouriteFood(h))}. I can hear the bag rustle from the far field.`,
+      h => `${h.likes[1]}. Don't test me on this.`,
+      () => "The sound of the feed room door." ] },
+    { q: "My most irrational fear", a: [
+      () => "Plastic bags. Also the wheelbarrow, but only on Tuesdays.",
+      () => "That one bucket. It knows what it did.",
+      () => "Puddles. Could be bottomless. Nobody can prove they're not.",
+      () => "The farrier's van. I can spot it from a mile away." ] },
+    { q: "Typical Sunday", a: [
+      h => `A bit of ${low(h.discipline)}, a long nap standing up, then ${low(h.likes[0])}.`,
+      () => "Graze, nap, graze, stare at a fence post, graze.",
+      () => "Rolling in the mud right after my bath. Every week." ] },
+    { q: "The way to win me over is", a: [
+      h => `Bring ${favouriteFood(h)}. Then bring more ${favouriteFood(h)}.`,
+      () => "Scratch the itchy spot on my withers. You'll know it when you find it.",
+      () => "Stand next to me in the rain and say nothing." ] },
+    { q: "Two truths and a lie", a: [
+      h => `I'm ${h.age}. I've won a rosette. I love baths.`,
+      () => "I've never bitten anyone. I can open gates. I'm scared of geese.",
+      h => `I do ${low(h.discipline)}. I've jumped out of a field. I share my hay.` ] },
+    { q: "Dating me is like", a: [
+      () => "A trail ride: slow, scenic, occasionally I stop to eat a bush.",
+      () => "A dressage test. Lots of rules, very elegant, someone cries.",
+      () => "Owning a pony. You think you're in charge. You're not." ] },
+    { q: "I won't shut up about", a: [
+      h => `${h.likes[0]}. Ask me anything.`,
+      h => `My ${low(h.breed)} bloodline. Great-great-granddad was very famous, apparently.`,
+      () => "The time I got out and ate the vicar's roses." ] },
+    { q: "Green flags I look for", a: [
+      () => "Shares the shade. Doesn't hog the water trough.",
+      () => "Calm around tractors. Says thank you to the farrier.",
+      h => `Into ${low(h.likes[1])}, or at least willing to try.` ] },
+    { q: "Unusual skills", a: [
+      () => "I can untie any knot with my lips.",
+      () => "I know exactly when it's 5pm without a clock. Dinner time.",
+      () => "Sleeping standing up through a thunderstorm." ] },
+    { q: "Don't hate me if I", a: [
+      () => "Spook at nothing and then look at you like it was your fault.",
+      h => `Eat your ${favouriteFood(h)} while you're not looking.`,
+      () => "Roll right after you've groomed me." ] },
+    { q: "Together, we could", a: [
+      h => `Go ${low(h.likes[2])} and then split a carrot.`,
+      () => "Stand nose to tail and swat each other's flies all summer.",
+      () => "Find the gap in the fence and finally see what's next door." ] },
+    { q: "I'm looking for", a: [
+      () => "Someone who'll be there at feeding time and after.",
+      () => "A paddock mate who doesn't kick when the hay arrives.",
+      () => "A trail buddy with steady nerves. Mine aren't." ] },
+    { q: "My love language is", a: [
+      () => "Mutual grooming. Withers first, please.",
+      h => `${cap(favouriteFood(h))}, offered flat-handed.`,
+      () => "Standing close enough that our tails touch." ] },
+    { q: "Best way to ask me out", a: [
+      () => "Lead rope in one hand, apple in the other.",
+      () => "Whinny once across the field. I'll pretend I didn't hear. I heard.",
+      () => "Meet me at the water trough at dusk." ] },
+  ];
+  const PROMPT_QUESTIONS = PROMPTS.map(p => p.q);
+  function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+  /* Three different prompts with answers made from the horse's own details. `own` are
+     hand-written answers that go first. */
+  function makePrompts(h, rand, own) {
+    const out = (own || []).slice(0, 3), used = {}, food = favouriteFood(h);
+    out.forEach(p => { used[p.q] = true; });
+    pickN(rand, PROMPTS.filter(p => !used[p.q]), 3 - out.length).forEach(p => {
+      // Mention the favourite food once at most; every question has an answer without it
+      const said = out.some(x => low(x.a).indexOf(food) >= 0);
+      const answers = pickN(rand, p.a, p.a.length).map(f => f(h));
+      out.push({ q: p.q, a: answers.filter(a => !said || low(a).indexOf(food) < 0)[0] || answers[0] });
+    });
+    return out;
+  }
+  /* Horses saved in older matches have no prompts yet, or one that was taken out of the
+     app: make new ones, the same ones every time */
+  const known = ps => ps.every(p => PROMPT_QUESTIONS.indexOf(p.q) >= 0);
+  function promptsOf(h) {
+    return h.prompts && h.prompts.length && known(h.prompts) ? h.prompts
+      : makePrompts(h, A.mulberry32(A.hashString(h.id || h.name || "")), h.ownPrompts);
+  }
+
   // ---------- Chat personalities ----------
   const VOICES = {
     posh: {
@@ -155,7 +234,8 @@
     { id: "duchess", name: "Duchess", age: 7, sex: "mare", breed: "Hanoverian", inches: 66, discipline: "Dressage", distance: 3, voice: "posh", lookingFor: "longterm",
       art: { coat: "bay", marking: "blaze", mane: "braided", scene: "arena", accessory: "rosette" },
       bio: "Looking for someone who can hold a collected canter and a conversation. Mints are the way to my heart.",
-      likes: ["Peppermints", "Dressage", "Classical music"] },
+      likes: ["Peppermints", "Dressage", "Classical music"],
+      ownPrompts: [{ q: "Green flags I look for", a: "Clean tack. Clean hooves. Knows which fork is for hay." }] },
     { id: "biscuit", name: "Biscuit", age: 12, sex: "gelding", breed: "Haflinger", inches: 57, discipline: "Trail riding", distance: 5, voice: "foodie", lookingFor: "casual",
       art: { coat: "palomino", build: "pony", mane: "long", scene: "sunset", accessory: "flowers" },
       bio: "Professional snacker. I'll share my hay net if you're cute.",
@@ -164,11 +244,13 @@
       art: { coat: "black", marking: "star", scene: "night" },
       bio: "Ran 14 races and won 2. These days I just want to walk slowly somewhere nice.",
       likes: ["Napping standing up", "Stargazing", "Racing"],
+      ownPrompts: [{ q: "Two truths and a lie", a: "I won 2 races. I lost 12. I miss it." }],
       talk: { lines: ["Starting gates still give me the jitters.", "Want to walk somewhere nice? Really slowly?", "I lost 12 races and I'm at peace with it."] } },
     { id: "pepper", name: "Pepper", age: 9, sex: "mare", breed: "Appaloosa", inches: 60, discipline: "Western pleasure", distance: 7, voice: "sassy", lookingFor: "unsure",
       art: { coat: "white", pattern: "spots", marking: "snip", scene: "sunset", accessory: "cowboy" },
       bio: "The spots are natural. So is the attitude.",
       likes: ["Rolling in mud", "Apples", "Country music"],
+      ownPrompts: [{ q: "Don't hate me if I", a: "Roll in the deepest puddle right before our date. It's a look." }],
       talk: { lines: ["I just rolled in the deepest mud puddle in the county. You're welcome.", "Don't mention the spots. I know about the spots.", "If you're going to be boring, I'm going back to the mud."] } },
     { id: "reginald", name: "Sir Reginald", age: 19, sex: "gelding", breed: "Shire", inches: 71, discipline: "Carriage driving", distance: 14, voice: "gentle", lookingFor: "longterm",
       art: { coat: "seal", marking: "bald", build: "draft", mane: "long", scene: "barn", accessory: "halter" },
@@ -186,6 +268,7 @@
       art: { coat: "dun", build: "pony", mane: "wild", scene: "meadow", accessory: "bow" },
       bio: "Small horse, big opinions. I live with a goat named Kevin.",
       likes: ["Goats", "Being groomed", "Napping standing up"],
+      ownPrompts: [{ q: "Together, we could", a: "Meet Kevin. Kevin has to approve. Kevin is a goat." }],
       talk: { greet: ["Hello. I am Gus.", "Kevin said I should reply to you."], lines: ["Kevin just ate part of a fence.", "I am small but I have lived a long time.", "Please do not try to pick me up."] } },
     { id: "bella", name: "Bella", age: 6, sex: "mare", breed: "Friesian", inches: 64, discipline: "Dressage", distance: 4, voice: "posh", lookingFor: "longterm",
       art: { coat: "black", mane: "wild", scene: "studio" },
@@ -218,7 +301,8 @@
     { id: "pickles", name: "Pickles", age: 2, sex: "mare", breed: "Shetland pony", inches: 38, discipline: "Professional grazing", distance: 1, voice: "tiny", lookingFor: "casual",
       art: { coat: "chestnut", pattern: "pinto", build: "pony", mane: "wild", scene: "meadow", accessory: "bow" },
       bio: "I have escaped from 4 different paddocks. Catch me if you can.",
-      likes: ["Sugar cubes", "Spooking at bags", "Barn cats"] },
+      likes: ["Sugar cubes", "Spooking at bags", "Barn cats"],
+      ownPrompts: [{ q: "Unusual skills", a: "I fit under any fence. Any fence." }] },
     { id: "marigold", name: "Marigold", age: 25, sex: "mare", breed: "Morgan", inches: 60, discipline: "Pony Club", distance: 5, voice: "gentle", lookingFor: "graze",
       art: { coat: "chestnut", marking: "star", scene: "barn", accessory: "halter" },
       bio: "Taught 200 kids to ride. Patient, kind, will bite if you pull my mane.",
@@ -234,6 +318,26 @@
     return inches <= 42 ? `${inches} in` : `${Math.floor(inches / 4)}.${inches % 4} hh`;
   }
   function plural(n, word) { return `${n} ${word}${n === 1 ? "" : "s"}`; }
+  /* Distances are stored in furlongs; Settings can show them in km (1 furlong = 201.168 m) */
+  function fmtDist(furlongs) {
+    const S = window.HorseSettings;
+    return S && S.get().units === "km" ? `${+(furlongs * 0.201168).toFixed(1)} km` : plural(furlongs, "furlong");
+  }
+
+  /* "Add to calendar" links for a browser: o = { title, location, description, start, end } (ms) */
+  function utcStamp(t) { return new Date(t).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, ""); }
+  function calendarLinks(o) {
+    const q = obj => Object.keys(obj).map(k => k + "=" + encodeURIComponent(obj[k])).join("&");
+    return {
+      google: "https://calendar.google.com/calendar/render?" + q({
+        action: "TEMPLATE", text: o.title, dates: utcStamp(o.start) + "/" + utcStamp(o.end), details: o.description, location: o.location,
+      }),
+      outlook: "https://outlook.live.com/calendar/0/deeplink/compose?" + q({
+        path: "/calendar/action/compose", rru: "addevent", subject: o.title,
+        startdt: new Date(o.start).toISOString(), enddt: new Date(o.end).toISOString(), body: o.description, location: o.location,
+      }),
+    };
+  }
 
   function pickN(rand, arr, n) {
     const pool = arr.slice(), out = [];
@@ -270,7 +374,7 @@
       distance: 1 + Math.floor(rand() * 19),
       voice: inches <= 42 ? "tiny" : pick(rand, VOICE_KEYS.filter(v => v !== "tiny")),
       lookingFor: pick(rand, Object.keys(LOOKING)),
-      likes: pickN(rand, INTEREST_NAMES, 3),
+      likes: pickN(rand, INTERESTS, 3),
       art: A.randomSpec(rand, { coats: breed.coats, patterns: breed.patterns, build: breed.build, mane: breed.mane }),
     };
     const bits = pickN(rand, BIO_BITS, 2);
@@ -294,6 +398,7 @@
       const r = A.mulberry32(A.hashString(h.id) ^ seed);
       h.photos = A.variants(A.normalize(h.art), r, 2 + Math.floor(r() * 3));
       h.prefs = window.HorsePrefs.generate(h, r);
+      h.prompts = makePrompts(h, r, h.ownPrompts); // last, so photos and prefs stay as they were
     });
 
     const deck = all.filter(h => !(skip && skip[h.id]));
@@ -305,7 +410,8 @@
   }
 
   window.HorseData = {
-    INTERESTS: INTEREST_NAMES, FOODS, SEXES, LOOKING, DISCIPLINES, BREEDS, VOICES,
-    fmtHeight, plural, pickN, voiceFor, favouriteFood, interestRegex, buildDeck,
+    INTERESTS, SEXES, LOOKING, DISCIPLINES, BREEDS, NAMES, PROMPT_QUESTIONS,
+    fmtHeight, plural, fmtDist, pickN, voiceFor, favouriteFood, buildDeck, makePrompts, promptsOf,
+    utcStamp, calendarLinks,
   };
 })();

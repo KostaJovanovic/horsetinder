@@ -33,19 +33,23 @@
     return p;
   }
 
-  /* Would horse h swipe right on this player profile?
+  /* Would horse h swipe right on this player profile? `liked` is set when the player
+     tapped the heart on one photo or prompt: { kind: "photo" | "prompt", comment }.
      Returns { match, reason } where reason is internal only and never shown. */
-  function evaluate(h, me, kind) {
+  function evaluate(h, me, kind, liked) {
     const p = h.prefs;
     const main = me.photos[0] || {};
     const no = reason => ({ match: false, reason });
+    const answers = (me.prompts || []).map(x => x.a || "").filter(Boolean);
+    const words = ((me.bio || "") + " " + answers.join(" ")).toLowerCase();
 
     if (p.sexes.indexOf(me.sex) < 0) return no("sex");
     if (me.age < p.ageMin || me.age > p.ageMax) return no("age");
     if (p.hatesCoat && main.coat === p.hatesCoat) return no("coat");
     if (p.hatesInterest && me.interests.indexOf(p.hatesInterest) >= 0) return no("interest");
     if (p.strictGoal && me.lookingFor !== h.lookingFor && me.lookingFor !== "unsure") return no("goal");
-    if (p.needsBio && (me.bio || "").trim().length < 20) return no("bio");
+    // Prompt answers count as something to read, same as a bio
+    if (p.needsBio && words.trim().length < 20) return no("bio");
     if (me.photos.length < p.minPhotos) return no("photos");
     if (p.height === "taller" && me.inches < h.inches - 2) return no("height");
     if (p.height === "shorter" && me.inches > h.inches + 2) return no("height");
@@ -61,17 +65,62 @@
     if (me.discipline === h.discipline) score += 8;
     if (me.lookingFor === h.lookingFor) score += 6;
     score += Math.min(me.photos.length, 6) * 2;
+    score += Math.min(answers.length, 3) * 3;
+    if (h.likes.some(l => words.indexOf(l.toLowerCase()) >= 0)) score += 8; // you wrote about something they love
+    if (liked && liked.kind === "prompt") score += 4; // you read what they wrote
+    if (liked && liked.comment) score += 6;
     score += Math.floor(Math.random() * 30); // mood on the day
     if (kind === "super") score += 20;
 
     return score >= p.pickiness ? { match: true, reason: "score" } : no("score");
   }
 
-  /* Does a chat message bring up the thing this horse can't stand? */
-  function offends(h, text) {
-    const hate = h.prefs && h.prefs.hatesInterest;
-    return !!hate && window.HorseData.interestRegex(hate).test(text);
+  // ---------- Horses liking you first ----------
+  const PHOTO_COMMENTS = {
+    cowboy: ["Yeehaw. That hat works on you.", "Is the hat staying on for the date?"],
+    shades: ["Cool shades. Can I borrow them?", "Too cool for this paddock."],
+    flowers: ["Did you make that crown yourself?", "The flowers. Stop it."],
+    bow: ["The bow is doing a lot of work and I'm here for it."],
+    halter: ["Red really suits you."],
+    flymask: ["Mysterious. I like it."],
+    rosette: ["A winner, I see. Show me how."],
+  };
+  const POSE_COMMENTS = { graze: ["Save me some of that grass?"], back: ["Looking back at me?"] };
+  const ANY_PHOTO = ["That mane, though.", "Great light in this one.", "Okay, hello.", "You look like trouble. Good trouble."];
+  const PROMPT_COMMENTS = [
+    a => `"${a.length > 40 ? a.slice(0, 38).trim() + "…" : a}" Same, honestly.`,
+    () => "Okay, this made me snort.",
+    () => "We need to talk about this answer.",
+    () => "Finally, a horse with taste.",
+    () => "Ha. You get it.",
+  ];
+
+  /* Would horse h like one of your photos or prompts before you've swiped on it?
+     Only horses whose secret preferences you pass. Returns null, or what it liked:
+     { kind: "photo" | "prompt", index, comment } (comment can be ""). */
+  function likesYou(h, me, rand) {
+    if (!evaluate(h, me, "like", null).match) return null;
+    const A = window.HorseArt;
+    const answered = (me.prompts || []).map((p, i) => p && p.a ? i : -1).filter(i => i >= 0);
+    // Answered prompts get liked more often than photos, like on Hinge
+    const kind = answered.length && rand() < 0.6 ? "prompt" : "photo";
+    const index = kind === "prompt" ? A.pick(rand, answered) : Math.floor(rand() * me.photos.length);
+    let comment = "";
+    if (rand() < 0.5) {
+      if (kind === "prompt") comment = A.pick(rand, PROMPT_COMMENTS)(me.prompts[index].a);
+      else {
+        const ph = me.photos[index] || {};
+        comment = A.pick(rand, PHOTO_COMMENTS[ph.accessory] || POSE_COMMENTS[ph.pose] || ANY_PHOTO);
+      }
+    }
+    return { kind, index, comment };
+  }
+  /* Chance per swipe that some horse likes you first: about 1 in 12, a little more
+     with prompts answered and a few photos */
+  function likeChance(me) {
+    const answered = (me.prompts || []).filter(p => p && p.a).length;
+    return 0.07 + 0.01 * Math.min(answered, 3) + (me.photos.length >= 3 ? 0.01 : 0);
   }
 
-  window.HorsePrefs = { generate, evaluate, offends };
+  window.HorsePrefs = { generate, evaluate, likesYou, likeChance };
 })();

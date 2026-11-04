@@ -285,7 +285,8 @@
       const shared = me ? me.interests.filter(i => m.horse.likes.indexOf(i) >= 0).length : 0;
       m.vibe = Math.min(75, 45 + shared * 6 + (m.superLiked ? 10 : 0));
     }
-    upcoming(m.mem);
+    // No upcoming() here: rolling the date forward on every open meant it never ended.
+    // addToCalendar rolls it, so the calendar still never gets a date in the past.
   }
 
   const DATE_MINS = 60, DATE_LEAD = 30 * 60000;
@@ -293,9 +294,9 @@
 
   function dateOver(mem) { return !!(mem.date && mem.dateAt && mem.dateAt + DATE_MINS * 60000 < Date.now()); }
 
-  /* A date that isn't in the calendar yet always points at the future: if its day
-     came and went (the chat sat unopened, or it's from an older version), it moves
-     to the next day at the same time. */
+  /* Called just before a date goes into the calendar: if its day came and went
+     (the chat sat unopened, or it's from an older version), it moves to the next
+     day at the same time. */
   function upcoming(mem) {
     if (!mem || !mem.date || mem.calEventId) return mem && mem.dateAt;
     const now = Date.now();
@@ -524,8 +525,10 @@
     }
 
     // 5. Answers to the horse's last question
-    // ("hey", "bye", "lol" and the like aren't answers, so they skip this)
-    const smallTalk = (W.hello || W.bye || W.laugh || W.thanks || W.compliment || W.kiss || W.joke) && !a.ents.length;
+    // ("hey", "bye", "lol" and the like aren't answers, so they skip this,
+    // except "great, thanks" to "how are you", which is one)
+    const moodAnswer = mem.pending && mem.pending.type === "mood" && (W.happy || W.sad);
+    const smallTalk = (W.hello || W.bye || W.laugh || W.thanks || W.compliment || W.kiss || W.joke) && !a.ents.length && !moodAnswer;
     if (mem.pending && !a.isQ && !smallTalk && answerPending(m, me, a, out)) return finish(m, out, voice);
 
     // 6. Actions like *nuzzles*
@@ -588,7 +591,7 @@
       out.say(`${D.fmtHeight(h.inches)}.` + (Math.abs(diff) <= 1 ? " Same as you!" : diff > 0 ? " You're taller than me, which is nice." : " So I'd be looking down at you. Sorry."));
       return finish(m, out, voice);
     }
-    if (where) { out.say(rnd([`About ${D.plural(h.distance, "furlong")} from you.`, `${D.plural(h.distance, "furlong")} away. Walkable. Trottable, even.`])); return finish(m, out, voice); }
+    if (where) { out.say(rnd([`About ${D.fmtDist(h.distance)} from you.`, `${D.fmtDist(h.distance)} away. Walkable. Trottable, even.`])); return finish(m, out, voice); }
     if (fav) {
       if (/snack|food|treat|eat/.test(t)) out.say(`${cap(D.favouriteFood(h))}. Obviously.`);
       else if (/colou?r|coat/.test(t)) out.say(`${A.COATS[(h.art && h.art.coat) || "bay"].name}. Mine, obviously.`);
@@ -760,7 +763,7 @@
         case "morning_night": return ["Morning horse", "Night horse"];
         case "fun": return ["Long gallops", "Napping", "Jumping", "Rolling in mud", "Trail rides"];
         case "mood": return ["Great, thanks!", "Bit tired", "Pretty bored"];
-        case "human": return ["They're lovely", "They're a lot", "They sing badly"];
+        case "human": return ["They're the best", "They're a lot", "They sing badly"];
       }
     }
     const h = m.horse;
@@ -787,5 +790,5 @@
     { label: "Chocolate", text: "*gives you some chocolate*" },
   ];
 
-  window.HorseChat = { init, respond, opener, suggestions, analyze, opinion, GIFTS, settings, FACES, upcoming };
+  window.HorseChat = { init, respond, opener, suggestions, GIFTS, settings, upcoming };
 })();

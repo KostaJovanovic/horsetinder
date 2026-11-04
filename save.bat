@@ -404,6 +404,12 @@ if not exist "node_modules\@capacitor\cli" (
   call npm install --no-audit --no-fund
   if errorlevel 1 exit /b 1
 )
+echo [bld]  tests
+call npm test
+if errorlevel 1 (
+  echo [err]  the tests failed - not building
+  exit /b 1
+)
 echo [bld]  sync www into the Android project
 call npx cap sync android
 if errorlevel 1 (

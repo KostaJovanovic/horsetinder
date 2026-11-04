@@ -36,7 +36,8 @@ function Plain([Security.SecureString]$s) {
 function Read-Props {
     $h = @{}
     foreach ($line in Get-Content $props) {
-        if ($line -match '^\s*([^#=]+?)\s*=\s*(.*)$') { $h[$Matches[1]] = $Matches[2] }
+        # The one escape this script writes: \\ for a backslash
+        if ($line -match '^\s*([^#=]+?)\s*=\s*(.*)$') { $h[$Matches[1]] = $Matches[2].Replace('\\', '\') }
     }
     $h
 }
@@ -59,6 +60,8 @@ if (Test-Path $store) {
         $b = Plain (Read-Host "again (hidden)" -AsSecureString)
         if ($a -ne $b) { Write-Host "       they don't match, try again" -ForegroundColor Yellow; continue }
         if ($a.Length -lt 6) { Write-Host "       6 characters at least" -ForegroundColor Yellow; continue }
+        # keystore.properties is written as ASCII, so any other character would turn into "?"
+        if ($a -cmatch '[^\x20-\x7E]') { Write-Host "       plain ASCII letters, digits and symbols only" -ForegroundColor Yellow; continue }
         $pw = $a; break
     }
     New-Item -ItemType Directory -Force $dir | Out-Null
@@ -76,14 +79,15 @@ if (Test-Path $store) {
     Write-Host "       lose it and no installed copy can ever be updated again."
 }
 
-# Forward slashes: a backslash is an escape in a .properties file.
+# Forward slashes, and \\ in the password: a backslash is an escape in a .properties file.
 $storeFwd = $store.Replace('\', '/')
+$pwProp = $pw.Replace('\', '\\')
 @(
     "# Made by tools\keystore.ps1. Gitignored: never commit this file.",
     "storeFile=$storeFwd",
-    "storePassword=$pw",
+    "storePassword=$pwProp",
     "keyAlias=$alias",
-    "keyPassword=$pw"
+    "keyPassword=$pwProp"
 ) | Set-Content -Path $props -Encoding ascii
 Write-Host "[key]  wrote android\keystore.properties (gitignored)"
 

@@ -4,6 +4,18 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Horse Tinder</title>
+  <meta name="description" content="Tinder for horses. Find your stable relationship.">
+  <meta name="theme-color" content="#E7ECDC" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#16130E" media="(prefers-color-scheme: dark)">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="icon" href="icon-192.png" sizes="192x192">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <!-- Link previews. Absolute, because chat apps don't resolve relative image paths. -->
+  <meta property="og:title" content="Horse Tinder">
+  <meta property="og:description" content="Find your stable relationship.">
+  <meta property="og:url" content="https://horsetinder.valjdakosta.com/">
+  <meta property="og:image" content="https://horsetinder.valjdakosta.com/icon-512.png">
   <script>
     try {
       var t = JSON.parse(localStorage.getItem("horse-tinder-settings") || "{}").theme;
@@ -23,6 +35,7 @@
       </div>
       <div class="topbar-right">
         <div class="radius" aria-label="Search radius">Within <b id="radius-text">20 furlongs</b></div>
+        <button class="icon-btn likes-btn" id="likes-btn" type="button" aria-label="Likes you" title="Likes you"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg><span class="badge" id="likes-badge" hidden></span></button>
         <button class="icon-btn" id="settings-btn" type="button" aria-label="Settings" title="Settings"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
         <button class="me-btn" id="me-btn" type="button" aria-label="Your profile">
           <span class="avatar" id="me-avatar"></span>
@@ -36,7 +49,7 @@
 
         <div class="empty" id="empty" hidden>
           <h2>That's every horse in the paddock</h2>
-          <p>You've seen all the horses within 20 furlongs. New arrivals usually turn up after feeding time.</p>
+          <p>You've seen all the horses within <span id="empty-radius">20 furlongs</span>. New arrivals usually turn up after feeding time.</p>
           <button class="btn" id="restart" type="button">Bring in new horses</button>
         </div>
 
@@ -50,18 +63,44 @@
           <button class="ctl ctl-like" id="btn-like" type="button" aria-label="Yay (like)" title="Yay (Right arrow)">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg>
           </button>
+          <button class="ctl ctl-undo" id="btn-undo" type="button" aria-label="Bring back the last horse" title="Bring back the last horse" disabled>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14L4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3"/></svg>
+          </button>
         </div>
-        <p class="hint">Drag the card, tap the photo for more, or use <kbd>&larr;</kbd> <kbd>&uarr;</kbd> <kbd>&rarr;</kbd></p>
+        <p class="hint">Scroll for more, drag sideways to swipe, tap &#9829; on a photo or prompt, or use <kbd>&larr;</kbd> <kbd>&uarr;</kbd> <kbd>&rarr;</kbd></p>
       </section>
 
       <aside class="matches" aria-label="Your matches">
         <h2>Matches <span class="count" id="match-count">0</span></h2>
+        <div id="new-wrap" hidden>
+          <h3 class="side-sub">New matches</h3>
+          <ul class="new-matches" id="new-matches"></ul>
+        </div>
+        <h3 class="side-sub" id="msg-head" hidden>Messages</h3>
         <ul id="match-list"></ul>
         <p class="no-matches" id="no-matches">No matches yet. Swipe right on a horse who likes the same snacks as you.</p>
         <p class="tally" id="tally"></p>
       </aside>
     </main>
   </div>
+
+  <!-- Phones: Tinder-style tabs along the bottom -->
+  <nav class="tabbar" id="tabbar" aria-label="Sections">
+    <button class="tab on" type="button" data-tab="swipe" aria-label="Swipe" title="Swipe" aria-current="page">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 4v7.5a5.5 5.5 0 0 0 11 0V4 M4.5 4h4 M15.5 4h4"/><circle cx="7" cy="9" r=".9"/><circle cx="17" cy="9" r=".9"/><circle cx="8.6" cy="14.6" r=".9"/><circle cx="15.4" cy="14.6" r=".9"/></svg>
+    </button>
+    <button class="tab" type="button" data-tab="likes" aria-label="Likes you" title="Likes you">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg>
+      <span class="badge" id="tab-likes-badge" hidden></span>
+    </button>
+    <button class="tab" type="button" data-tab="chats" aria-label="Chats" title="Chats">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/></svg>
+      <span class="badge" id="tab-chats-badge" hidden></span>
+    </button>
+    <button class="tab" type="button" data-tab="profile" aria-label="Your profile" title="Your profile">
+      <span class="avatar" id="tab-me"></span>
+    </button>
+  </nav>
 
   <!-- It's a match -->
   <div class="overlay" id="overlay" hidden>
@@ -117,7 +156,7 @@
   </div>
 
   <!-- Your profile -->
-  <div class="chat" id="profile" hidden>
+  <div class="chat tabview" id="profile" hidden>
     <div class="chat-panel" role="dialog" aria-modal="true" aria-labelledby="profile-title">
       <header class="chat-head">
         <button class="chat-close" id="profile-close" type="button" aria-label="Close profile">
@@ -143,6 +182,7 @@
       <footer class="ob-foot">
         <p class="ob-error" id="ob-error" role="alert" hidden></p>
         <button class="btn btn-wide" id="ob-next" type="button">Continue</button>
+        <button class="btn-text ob-quick" id="ob-quick" type="button" hidden>Quick setup</button>
       </footer>
     </div>
   </div>
@@ -182,6 +222,40 @@
     </div>
   </div>
 
+  <!-- Like one photo or prompt, with an optional comment -->
+  <div class="sheet" id="like-sheet" hidden>
+    <div class="sheet-panel like-panel" role="dialog" aria-modal="true" aria-labelledby="like-title">
+      <h2 class="like-title" id="like-title">Like <span id="like-name"></span></h2>
+      <div class="like-preview" id="like-preview"></div>
+      <label class="sr-only" for="like-comment">Comment</label>
+      <input class="ob-input" id="like-comment" type="text" maxlength="140" autocomplete="off" placeholder="Add a comment (optional)">
+      <button class="btn btn-wide" id="like-send" type="button">Send like</button>
+      <button class="btn-text like-cancel" id="like-cancel" type="button">Cancel</button>
+    </div>
+  </div>
+
+  <!-- Add a date to a calendar from a browser (the Android app adds it directly) -->
+  <div class="sheet" id="cal-sheet" hidden>
+    <div class="sheet-panel" role="dialog" aria-modal="true" aria-label="Add the date to a calendar">
+      <button class="sheet-btn" type="button" data-cal="google">Google Calendar<small>Opens Google Calendar with the date filled in</small></button>
+      <button class="sheet-btn" type="button" data-cal="outlook">Outlook<small>Opens Outlook on the web with the date filled in</small></button>
+      <button class="sheet-btn" type="button" data-cal="ics">Apple Calendar or another app<small>Saves a calendar file. Open it to add the date</small></button>
+      <button class="sheet-btn" type="button" data-cal="share" id="cal-share" hidden>Share<small>Send the date to another app</small></button>
+      <button class="sheet-btn sheet-cancel" type="button" data-cal="cancel">Cancel</button>
+    </div>
+  </div>
+
+  <!-- Horses who liked you first -->
+  <div class="chat tabview" id="likes" hidden>
+    <div class="chat-panel" role="dialog" aria-modal="true" aria-labelledby="likes-title">
+      <header class="chat-head">
+        <button class="chat-close" id="likes-close" type="button" aria-label="Back"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+        <div class="chat-who"><strong id="likes-title">Likes you</strong><small id="likes-sub">Horses who liked something on your profile</small></div>
+      </header>
+      <div class="profile-body" id="likes-body"></div>
+    </div>
+  </div>
+
   <!-- A horse you matched with -->
   <div class="chat" id="horse" hidden>
     <div class="chat-panel" role="dialog" aria-modal="true" aria-labelledby="horse-title">
@@ -198,7 +272,7 @@
     <div class="chat-panel" role="dialog" aria-modal="true" aria-labelledby="settings-title">
       <header class="chat-head">
         <button class="chat-close" id="settings-close" type="button" aria-label="Close settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
-        <div class="chat-who"><strong id="settings-title">Settings</strong><small>Saved on this phone</small></div>
+        <div class="chat-who"><strong id="settings-title">Settings</strong><small>Saved on this device</small></div>
       </header>
       <div class="profile-body" id="settings-body"></div>
     </div>
@@ -216,6 +290,7 @@
   <div class="toast" id="toast" role="status" hidden></div>
 
   <script src="js/art.js"></script>
+  <script src="js/art-classic.js"></script>
   <script src="js/horses.js"></script>
   <script src="js/prefs.js"></script>
   <script src="js/profile.js"></script>

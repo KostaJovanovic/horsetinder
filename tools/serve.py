@@ -24,6 +24,7 @@ class Handler(SimpleHTTPRequestHandler):
         '.js': 'text/javascript',
         '.woff2': 'font/woff2',
         '.svg': 'image/svg+xml',
+        '.webmanifest': 'application/manifest+json',
     }
 
     def __init__(self, *args, **kwargs):

@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "",
   "scripts": {
+    "test": "node tools/test-chat.js && node tools/test-art.js",
     "sync": "cap sync android",
     "android": "cap open android",
     "run:android": "cap run android"

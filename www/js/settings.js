@@ -6,7 +6,9 @@
   const DEFAULTS = {
     theme: "system",      // system | light | dark
     reduceMotion: false,
+    classicArt: false,    // the original horse drawings (art-classic.js)
     radius: 20,           // furlongs
+    units: "furlongs",    // furlongs | km: only how distances are shown
     emoticons: true,
     showVibe: true,
     autoCalendar: false,  // add dates to the calendar as soon as they're set
@@ -70,54 +72,59 @@
         <h3>Appearance</h3>
         <div class="set-row stack"><div class="set-text"><span>Theme</span></div>
           ${seg("theme", [["system", "System"], ["light", "Light"], ["dark", "Dark"]])}</div>
-        ${toggle("reduceMotion", "Reduce motion", "Fewer animations when swiping and chatting")}
+        ${toggle("reduceMotion", "Reduce motion")}
+        ${toggle("classicArt", "Classic horse art")}
       </section>
 
       <section class="set-group">
         <h3>Swiping</h3>
-        <div class="set-row stack"><div class="set-text"><span>Search radius</span><small>Only show horses this close</small></div>
-          ${seg("radius", [[5, "5 fur."], [10, "10 fur."], [20, "20 fur."]])}</div>
-        <div class="set-row"><div class="set-text"><span>New horses</span><small>Deal a fresh deck with new secret preferences</small></div>
+        <div class="set-row stack"><div class="set-text"><span>Search radius</span></div>
+          ${seg("radius", [5, 10, 20].map(n => [n, s.units === "km" ? window.HorseData.fmtDist(n) : n + " fur."]))}</div>
+        <div class="set-row stack"><div class="set-text"><span>Distance units</span></div>
+          ${seg("units", [["furlongs", "Furlongs"], ["km", "Kilometres"]])}</div>
+        <div class="set-row"><div class="set-text"><span>New horses</span></div>
           <button type="button" class="set-btn" data-action="newHorses">Bring in</button></div>
       </section>
 
       <section class="set-group">
         <h3>Chat</h3>
-        ${toggle("emoticons", "Horse emoticons", "Horses add faces like (◕‿◕) and ¯\\_(ツ)_/¯")}
-        ${toggle("showVibe", "Show vibe meter", "How much a horse likes talking to you")}
+        ${toggle("emoticons", "Horse emoticons")}
+        ${toggle("showVibe", "Show vibe meter")}
       </section>
 
       <section class="set-group">
         <h3>Calendar</h3>
+        <div class="set-row stack"><label class="set-text" for="set-reminder"><span>Reminder</span></label>
+          <select class="set-select" id="set-reminder">${reminders.map(r => `<option value="${r[0]}"${s.reminder === r[0] ? " selected" : ""}>${r[1]}</option>`).join("")}</select></div>
         ${calendar.available ? `
-          ${toggle("autoCalendar", "Add dates automatically", "As soon as a horse agrees to a date")}
-          <div class="set-row stack"><label class="set-text" for="set-reminder"><span>Reminder</span></label>
-            <select class="set-select" id="set-reminder">${reminders.map(r => `<option value="${r[0]}"${s.reminder === r[0] ? " selected" : ""}>${r[1]}</option>`).join("")}</select></div>
-          <div class="set-row stack"><label class="set-text" for="set-calendar"><span>Calendar</span><small id="cal-hint">Dates sync to Google Calendar through the phone's own sync. The app never sends them anywhere.</small></label>
-            <select class="set-select" id="set-calendar"><option value="-1">Phone's main calendar</option></select>
+          ${toggle("autoCalendar", "Add dates automatically")}
+          <div class="set-row stack"><label class="set-text" for="set-calendar"><span>Calendar</span><small id="cal-hint"></small></label>
+            <select class="set-select" id="set-calendar"><option value="-1">Phone's main calendar</option>${s.calendarId >= 0 ? `<option value="${s.calendarId}" selected>The calendar you picked</option>` : ""}</select>
             <button type="button" class="set-btn" id="cal-load">Show my calendars</button></div>`
-        : `<p class="set-note">Calendar works in the Android app. In the app, dates go into the phone's calendar and sync to Google Calendar from there.</p>`}
+        : ""}
       </section>
 
       <section class="set-group">
         <h3>Data</h3>
-        <div class="set-row"><div class="set-text"><span>Reset stats</span><small>Yays, matches and rejections go back to zero</small></div>
+        <div class="set-row"><div class="set-text"><span>Save to a file</span></div>
+          <button type="button" class="set-btn" data-action="exportSave">Save</button></div>
+        <div class="set-row"><div class="set-text"><span>Load a save file</span></div>
+          <button type="button" class="set-btn" data-action="importSave" data-confirm="Pick file">Load</button></div>
+        <div class="set-row"><div class="set-text"><span>Reset stats</span></div>
           <button type="button" class="set-btn" data-action="resetStats" data-confirm="Tap again">Reset</button></div>
-        <div class="set-row"><div class="set-text"><span>Clear matches and chats</span><small>Your profile stays</small></div>
+        <div class="set-row"><div class="set-text"><span>Clear matches and chats</span></div>
           <button type="button" class="set-btn danger" data-action="clearChats" data-confirm="Tap again">Clear</button></div>
-        <div class="set-row"><div class="set-text"><span>Delete everything</span><small>Profile, matches, chats and settings</small></div>
+        <div class="set-row"><div class="set-text"><span>Delete everything</span></div>
           <button type="button" class="set-btn danger" data-action="clearAll" data-confirm="Really?">Delete</button></div>
       </section>
 
       <section class="set-group">
         <h3>Updates</h3>
-        <div class="set-row"><div class="set-text"><span>Version ${esc(version())}</span><small>${updater.enabled
-          ? "Checks GitHub for a new version when the app starts. That's the only thing it ever goes online for."
-          : updater.native ? "This build doesn't update itself." : "The Android app updates itself from GitHub."}</small></div>
+        <div class="set-row"><div class="set-text"><span>Version ${esc(version())}</span></div>
           ${updater.enabled ? `<button type="button" class="set-btn" data-action="checkUpdates">Check</button>` : ""}</div>
       </section>
 
-      <p class="set-about">Horse Tinder · everything but the update check works offline · every horse here is made up, even the rude ones</p>`;
+      <p class="set-about">Horse Tinder · your profile and chats stay on this device · every horse here is made up, even the rude ones</p>`;
     armed = null;
   }
 
@@ -169,9 +176,8 @@
       const list = (res && res.calendars) || [];
       sel.innerHTML = `<option value="-1">Phone's main calendar</option>` + list.map(c =>
         `<option value="${c.id}"${s.calendarId === c.id ? " selected" : ""}>${esc(c.name)}${c.account && c.account !== c.name ? " (" + esc(c.account) + ")" : ""}</option>`).join("");
-      hint.textContent = list.some(c => c.google)
-        ? "Google calendars sync through the phone. The app never sends your dates anywhere."
-        : "No Google calendar on this phone yet. Dates will go into a local Horse Tinder calendar.";
+      // Only worth saying when it isn't what you'd expect
+      hint.textContent = list.some(c => c.google) ? "" : "No Google calendar on this phone yet. Dates will go into a local Horse Tinder calendar.";
       const btn = document.getElementById("cal-load");
       if (btn) btn.hidden = true;
     }, err => {

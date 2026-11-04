@@ -32,6 +32,7 @@
     { key: "marking", label: "Face marking", body: true, items: () => toItems(A.MARKINGS) },
     { key: "pattern", label: "Pattern", body: true, items: () => toItems(A.PATTERNS) },
     { key: "build", label: "Build", body: true, items: () => toItems(A.BUILDS) },
+    { key: "pose", label: "Pose", items: () => toItems(A.POSES) },
     { key: "accessory", label: "Accessory", items: () => toItems(A.ACCESSORIES) },
     { key: "scene", label: "Background", items: () => {
       const list = toItems(A.SCENES);
@@ -249,11 +250,18 @@
   const obNext = document.getElementById("ob-next");
   const obError = document.getElementById("ob-error");
   let draft = null, stepIndex = 0, steps = [], onFinish = null, editing = false, uploading = 0;
+  let splashed = false;
 
-  function options(name, map, value, multi) {
+  // Faded human translations shown on the right of the setup options
+  const HUMAN = { mare: "Woman", stallion: "Man", gelding: "Man (retired)" };
+  const HUMANS = { mare: "Women", stallion: "Men", gelding: "Men (retired)" };
+  function cm(inches) { return Math.round(inches * 2.54) + " cm"; }
+
+  function options(name, map, value, multi, human) {
     return `<div class="ob-options">` + Object.keys(map).map(k => {
       const on = multi ? value.indexOf(k) >= 0 : value === k;
-      return `<button type="button" class="ob-option${on ? " on" : ""}" data-${name}="${k}" aria-pressed="${on}">${esc(map[k])}</button>`;
+      const hint = human && human[k] ? `<span class="ob-human">${esc(human[k])}</span>` : "";
+      return `<button type="button" class="ob-option${on ? " on" : ""}" data-${name}="${k}" aria-pressed="${on}">${hint}${esc(map[k])}</button>`;
     }).join("") + `</div>`;
   }
 
@@ -267,13 +275,18 @@
     welcome: {
       render() {
         const r = A.mulberry32(Date.now() >>> 0);
-        const trio = [0, 1, 2].map(() => `<div class="welcome-photo">${A.render(A.randomSpec(r), { label: "A horse on Horse Tinder" })}</div>`).join("");
+        const trio = [0, 1, 2].map(() => `<div class="welcome-photo"><span class="welcome-q" aria-hidden="true">?</span>${A.render(A.randomSpec(r), { label: "A horse on Horse Tinder" })}</div>`).join("");
         return `<div class="welcome">
           <div class="welcome-fan">${trio}</div>
           <h1 class="logo welcome-logo">Horse Tinder</h1>
-          <p class="welcome-lede">Swipe on horses near you. Find your stable relationship.</p>
-          <p class="ob-hint">Every horse has its own secret taste. Not every horse will like you back.</p>
+          <p class="welcome-lede">Find your stable relationship.</p>
+          <p class="ob-hint">Everything is local and offline. I have no money for servers.</p>
         </div>`;
+      },
+      bind() {
+        // The "?" cards and fade-in play once per page load, not every time Back returns here
+        if (!splashed) obEl.classList.add("splash");
+        splashed = true;
       },
       next: "Create a profile",
     },
@@ -300,12 +313,12 @@
       valid: () => draft.age >= 1 && draft.age <= 40 ? "" : "Enter an age from 1 to 40.",
     },
     sex: {
-      render: () => `<h1>I am a</h1>` + options("sex", D.SEXES, draft.sex),
+      render: () => `<h1>I am a</h1>` + options("sex", D.SEXES, draft.sex, false, HUMAN),
       bind() { bindOptions("sex", v => { draft.sex = v; }); },
       valid: () => draft.sex ? "" : "Choose one.",
     },
     showme: {
-      render: () => `<h1>Show me</h1>` + options("show", { mare: "Mares", stallion: "Stallions", gelding: "Geldings", everyone: "Everyone" }, draft.showMe),
+      render: () => `<h1>Show me</h1>` + options("show", { mare: "Mares", stallion: "Stallions", gelding: "Geldings", everyone: "Everyone" }, draft.showMe, false, HUMANS),
       bind() { bindOptions("show", v => { draft.showMe = v; }); },
       valid: () => draft.showMe ? "" : "Choose who you want to see.",
     },
@@ -313,7 +326,7 @@
       render: () => `<h1>The basics</h1>
         <label class="ob-label" for="ob-breed">Breed</label>
         <select class="ob-input" id="ob-breed">${D.BREEDS.map(b => b.name).concat(["Hanoverian", "Connemara", "Andalusian", "Mixed breed"]).sort().map(n => `<option${n === draft.breed ? " selected" : ""}>${esc(n)}</option>`).join("")}</select>
-        <label class="ob-label" for="ob-height">Height</label>
+        <label class="ob-label" for="ob-height">Height <span class="ob-human" id="ob-cm">${cm(draft.inches)}</span></label>
         <select class="ob-input" id="ob-height">${heightOptions(draft.inches)}</select>
         <label class="ob-label" for="ob-disc">What I do</label>
         <select class="ob-input" id="ob-disc">${D.DISCIPLINES.map(n => `<option${n === draft.discipline ? " selected" : ""}>${esc(n)}</option>`).join("")}</select>`,
@@ -321,7 +334,7 @@
         const b = document.getElementById("ob-breed"), h = document.getElementById("ob-height"), d = document.getElementById("ob-disc");
         draft.breed = b.value; draft.inches = Number(h.value); draft.discipline = d.value;
         b.addEventListener("change", () => { draft.breed = b.value; });
-        h.addEventListener("change", () => { draft.inches = Number(h.value); });
+        h.addEventListener("change", () => { draft.inches = Number(h.value); document.getElementById("ob-cm").textContent = cm(draft.inches); });
         d.addEventListener("change", () => { draft.discipline = d.value; });
       },
     },
@@ -371,7 +384,54 @@
         });
       },
     },
+    prompts: {
+      render: () => `<h1>Prompts</h1>
+        <p class="ob-sub">Answer at least one. Horses read these before they decide.</p>` +
+        draft.prompts.map((p, i) => `<div class="ob-prompt">
+          <label class="sr-only" for="ob-pq${i}">Prompt ${i + 1}</label>
+          <select class="ob-input" id="ob-pq${i}" data-pq="${i}">${D.PROMPT_QUESTIONS.map(q => `<option${q === p.q ? " selected" : ""}>${esc(q)}</option>`).join("")}</select>
+          <label class="sr-only" for="ob-pa${i}">Your answer</label>
+          <textarea class="ob-input ob-answer" id="ob-pa${i}" data-pa="${i}" maxlength="150" rows="2" placeholder="Your answer">${esc(p.a)}</textarea>
+        </div>`).join(""),
+      bind() {
+        obBody.querySelectorAll("[data-pq]").forEach(s => s.addEventListener("change", () => { draft.prompts[Number(s.dataset.pq)].q = s.value; showError(""); }));
+        obBody.querySelectorAll("[data-pa]").forEach(t => t.addEventListener("input", () => { draft.prompts[Number(t.dataset.pa)].a = t.value; showError(""); }));
+      },
+      valid() {
+        const answered = draft.prompts.filter(p => p.a.trim());
+        if (!answered.length) return "Answer at least one prompt.";
+        const qs = answered.map(p => p.q);
+        return qs.some((q, i) => qs.indexOf(q) !== i) ? "Pick a different prompt for each answer." : "";
+      },
+    },
   };
+  /* Three different questions with empty answers, then whatever the profile already had */
+  function promptSlots(existing) {
+    const have = (existing || []).filter(p => p && p.q).slice(0, 3).map(p => ({ q: p.q, a: p.a || "" }));
+    const free = D.pickN(Math.random, D.PROMPT_QUESTIONS.filter(q => !have.some(p => p.q === q)), 3 - have.length);
+    return have.concat(free.map(q => ({ q, a: "" })));
+  }
+
+  /* "Quick setup" on the welcome screen: a random but sensible profile, editable later */
+  function quickProfile() {
+    const r = Math.random, b = A.pick(r, D.BREEDS);
+    const spec = A.randomSpec(r, { coats: b.coats, patterns: b.patterns, build: b.build, mane: b.mane });
+    const p = {
+      name: A.pick(r, D.NAMES), age: 3 + Math.floor(r() * 18), sex: A.pick(r, Object.keys(D.SEXES)), showMe: "everyone",
+      breed: b.name, inches: b.min + Math.floor(r() * (b.max - b.min + 1)), discipline: A.pick(r, b.disc || D.DISCIPLINES),
+      lookingFor: A.pick(r, Object.keys(D.LOOKING)), interests: D.pickN(r, D.INTERESTS, 3 + Math.floor(r() * 3)),
+      photos: A.variants(spec, r, 2), bio: "",
+    };
+    // Prompts written the same way as the horses' own, from this profile's details
+    p.prompts = D.makePrompts(Object.assign({}, p, { likes: p.interests }), r);
+    return p;
+  }
+  document.getElementById("ob-quick").addEventListener("click", () => {
+    const done = onFinish, p = quickProfile();
+    closeWizard();
+    if (done) done(p);
+    toast(`<b>You're ${esc(p.name)}</b>, a ${esc(p.breed)}. Change anything from your profile.`);
+  });
 
   function focusSoon(el) {
     // Don't pop the keyboard over the screen on touch devices
@@ -410,11 +470,14 @@
     },
     upload(files) {
       files = files.slice(0, MAX_PHOTOS - draft.photos.length - uploading);
+      // An upload that finishes after the wizard was closed and reopened belongs to an old draft
+      const d = draft;
       files.forEach(f => {
         uploading++;
         renderSlots();
         const hadHorse = draft.photos.length > 0;
         A.horsify(f, mainBody()).then(spec => {
+          if (draft !== d) return;
           uploading--;
           addPhoto(spec); // re-applies the body in case another upload finished first
           renderSlots();
@@ -422,6 +485,7 @@
             ? `<b>Photo saved as your horse.</b> The original was not kept.`
             : `<b>Photo saved as a horse.</b> This is your horse now. The original was not kept.`);
         }, () => {
+          if (draft !== d) return;
           uploading--;
           renderSlots();
           toast("Couldn't read that image. Try a JPG or PNG.");
@@ -493,6 +557,7 @@
     obBack.setAttribute("aria-label", stepIndex === 0 ? "Close" : "Back");
     const last = stepIndex === steps.length - 1;
     obNext.textContent = step.next || (last ? (editing ? "Save profile" : "Start swiping") : "Continue");
+    document.getElementById("ob-quick").hidden = key !== "welcome";
     showError("");
     obBody.scrollTop = 0;
   }
@@ -526,6 +591,7 @@
       name: d.name.trim(), age: d.age, sex: d.sex, showMe: d.showMe, breed: d.breed, inches: d.inches,
       discipline: d.discipline, lookingFor: d.lookingFor, interests: d.interests.slice(),
       photos: d.photos.slice(), bio: d.bio.trim(),
+      prompts: d.prompts.filter(p => p.a.trim()).map(p => ({ q: p.q, a: p.a.trim() })),
     };
   }
 
@@ -535,7 +601,8 @@
       name: "", age: 0, sex: "", showMe: "", breed: "Mixed breed", inches: 60, discipline: "Trail riding",
       lookingFor: "", interests: [], photos: [], bio: "",
     };
-    steps = ["name", "age", "sex", "showme", "basics", "looking", "interests", "photos", "bio"];
+    draft.prompts = promptSlots(draft.prompts); // profiles from before prompts get empty slots
+    steps = ["name", "age", "sex", "showme", "basics", "looking", "interests", "photos", "bio", "prompts"];
     if (!editing) steps.unshift("welcome");
     stepIndex = 0;
     uploading = 0;
@@ -567,5 +634,7 @@
   }
   function isOpen() { return !obEl.hidden || !creatorEl.hidden || !sheetEl.hidden || !infoEl.hidden; }
 
-  window.HorseProfile = { openWizard, openCreator, handleBack, isOpen, toast, unifyPhotos };
+  window.HorseProfile = {
+    openWizard, closeWizard, openCreator, handleBack, isOpen, toast, unifyPhotos,
+  };
 })();
