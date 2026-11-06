@@ -799,7 +799,7 @@ window.HorseContent = {
       "lines": [
         "Race you to the far hedge?",
         "I spooked at a plastic bag today but it was a VERY suspicious bag.",
-        "do you like going fast. you should like going fast",
+        "Do you like going fast? You should like going fast",
         "WAIT did you hear that"
       ]
     },
@@ -1338,6 +1338,116 @@ window.HorseContent = {
         "Horse shows",
         "Classical music"
       ]
+    },
+    {
+      "id": "horse",
+      "name": "Horse",
+      "age": 11,
+      "sex": "gelding",
+      "breed": "Draft horse",
+      "inches": 64,
+      "discipline": "Professional grazing",
+      "distance": 1,
+      "voice": "chill",
+      "real": true,
+      "lookingFor": "graze",
+      "art": {
+        "coat": "bay",
+        "marking": "star",
+        "mane": "long",
+        "build": "draft",
+        "scene": "meadow"
+      },
+      "ownPhotos": [
+        {
+          "src": "img/horse/sleeping.jpg",
+          "pos": "72% 50%",
+          "credit": "Photo: 4028mdk09, CC BY-SA 3.0, Wikimedia Commons"
+        },
+        {
+          "src": "img/horse/rolling.jpg",
+          "pos": "50% 50%",
+          "credit": "Photo: 4028mdk09, CC BY-SA 3.0, Wikimedia Commons"
+        },
+        {
+          "src": "img/horse/walking-away.jpg",
+          "pos": "52% 50%",
+          "credit": "Photo: 4028mdk09, CC BY-SA 3.0, Wikimedia Commons"
+        },
+        {
+          "src": "img/horse/with-a-friend.jpg",
+          "pos": "50% 50%",
+          "credit": "Photo: 4028mdk09, CC BY-SA 3.0, Wikimedia Commons"
+        }
+      ],
+      "bio": "Neeeiiiighhh. Hrrrm. *eats grass* Brrrrrt. NEIGH. *walks away*",
+      "likes": [
+        "Rolling in mud",
+        "Hay nets",
+        "Napping standing up"
+      ],
+      "ownPrompts": [
+        {
+          "q": "My simple pleasures",
+          "a": "*eats grass* *eats more grass* *lies down*"
+        },
+        {
+          "q": "The way to win me over is",
+          "a": "HRRRRMMMHMHMHM *ears forward* *stares at your pockets*"
+        },
+        {
+          "q": "Two truths and a lie",
+          "a": "Neigh. Neeeigh. Pbbbbbbt."
+        }
+      ],
+      "talk": {
+        "greet": [
+          "Neeeeiiiiigh.",
+          "*lifts head* *stares at you* *goes back to grazing*",
+          "Hrrrrmph.",
+          "*nicker*",
+          "Brrrrrrrt.",
+          "NEIGH."
+        ],
+        "snack": [
+          "*ears forward* HRRRRMMMHMHMHM",
+          "*NICKER NICKER NICKER*",
+          "*crunch crunch crunch*",
+          "*shoves face in your pockets*",
+          "MMMMHHHHRRR *chomp*",
+          "*drools on you*",
+          "*trots over immediately*"
+        ],
+        "ride": [
+          "*walks away*"
+        ],
+        "lines": [
+          "Neeeiiiighhh.",
+          "Brrrrrrrt.",
+          "*chews*",
+          "*swishes tail*",
+          "Hrrrmph.",
+          "*stares into the distance*",
+          "*eats grass*",
+          "*rolls in the mud*",
+          "*sneezes on you*",
+          "Pbbbbbbbbt.",
+          "*flicks an ear at a fly*",
+          "NEIGH.",
+          "*yawns enormously*",
+          "Hhhhhrrrr hrrr hrrr.",
+          "*lies down*",
+          "*sniffs your phone*",
+          "*licks the screen*",
+          "Nnnnnhhhh.",
+          "*stomps a hoof*",
+          "*falls asleep standing up*",
+          "*snort*",
+          "*walks to the other end of the field*",
+          "Wheeeeeehehehehe.",
+          "*scratches its bum on a fence post*"
+        ]
+      }
     }
   ],
   "chat": {
@@ -1740,6 +1850,19 @@ window.HorseContent = {
           "cats",
           "kitten",
           "kittens"
+        ]
+      },
+      {
+        "id": "dogs",
+        "kind": "act",
+        "label": "dogs",
+        "words": [
+          "dog",
+          "dogs",
+          "puppy",
+          "puppies",
+          "doggo",
+          "pup"
         ]
       },
       {
@@ -2668,7 +2791,7 @@ window.HorseContent = {
       ],
       "statement.ok": [
         "{X} is fun. I could get into that.",
-        "Nice. I've done a bit of {x} myself."
+        "Nice. I don't mind {x} myself."
       ],
       "dislike.hate": [
         "FINALLY someone gets it. {X} is the worst.",
@@ -3259,6 +3382,168 @@ window.HorseContent = {
       "mood.playful.first": [
         "I'm in SUCH a good mood today.",
         "Okay I'm feeling silly today, be warned."
+      ],
+      "sorry": [
+        "It's fine.",
+        "Don't worry about it.",
+        "Nothing to be sorry for."
+      ],
+      "sorry.forgive": [
+        "...Fine. Apology accepted.",
+        "Okay. We're good. Don't do it again.",
+        "*sniffs you* Alright. Forgiven."
+      ],
+      "loveYou.yes": [
+        "I love you too. There, I said it.",
+        "*nuzzles you* Me too. Obviously.",
+        "Love you too. Don't tell the other horses."
+      ],
+      "loveYou.soon": [
+        "Slow down! ...But keep going.",
+        "That's a lot. I'm blushing under all this fur.",
+        "Already? Okay. I'm not saying no."
+      ],
+      "loveYou.tooSoon": [
+        "Whoa. We just met.",
+        "That's... a lot. Let's start with a carrot.",
+        "You don't even know my favourite snack yet."
+      ],
+      "missYou.yes": [
+        "I missed you too. The field was boring.",
+        "Took you long enough. Missed you.",
+        "Same. I kept checking my phone. With my nose."
+      ],
+      "missYou.no": [
+        "Miss me? I've been right here, eating.",
+        "We've only just started talking!",
+        "Already? Easy, tiger."
+      ],
+      "likeMe.yes": [
+        "Obviously. Why do you think I keep replying?",
+        "Yes. Don't make it weird.",
+        "A lot, actually."
+      ],
+      "likeMe.maybe": [
+        "You're growing on me. Like moss.",
+        "Ask me again in a few carrots.",
+        "Getting there."
+      ],
+      "likeMe.no": [
+        "Jury's still out.",
+        "Hmm. Impress me first.",
+        "We'll see."
+      ],
+      "marry.yes": [
+        "Yes! Wait, do horses get married? Yes!",
+        "Only if there are carrots at the wedding. So yes.",
+        "I thought you'd never ask."
+      ],
+      "marry.no": [
+        "Let's start with a date, maybe.",
+        "Bold. Very bold. Ask me after the first date.",
+        "Buy me dinner first. Hay is fine."
+      ],
+      "heart": [
+        "*blushes*",
+        "Stop it. (Don't stop.)",
+        "Aww."
+      ],
+      "single": [
+        "I'm on a dating app for horses. What do you think?",
+        "Single and grazing.",
+        "Very single. The goat doesn't count."
+      ],
+      "lookingFor.longterm": [
+        "Someone to share a paddock with. For a long time.",
+        "The real thing. A paddock mate for life."
+      ],
+      "lookingFor.trail": [
+        "Someone to go on trail rides with. Long ones.",
+        "A trail buddy. Someone who doesn't spook at bins."
+      ],
+      "lookingFor.casual": [
+        "Nothing serious. A gallop, a snack, see where it goes.",
+        "Something casual. No saddles attached."
+      ],
+      "lookingFor.graze": [
+        "Honestly? I'm mostly here for the snacks.",
+        "Just here to graze. And chat. Mostly graze."
+      ],
+      "lookingFor.unsure": [
+        "Still figuring that out. You?",
+        "No idea yet. Someone nice?"
+      ],
+      "aboutMe": [
+        "I'm a {breed}, {age}, {height}. I like {like1}, {like2} and {like3}.",
+        "Short version: {age} years old, {disc}, and a big fan of {like1}.",
+        "{Disc} horse. Loves {like1}. Will not shut up about {food}."
+      ],
+      "ate": [
+        "Hay, mostly. And some {food}.",
+        "Breakfast was hay. Lunch was hay. Guess what's for dinner.",
+        "Grass. A lot of grass. I regret nothing."
+      ],
+      "friends": [
+        "There's a goat in the next field. We're close.",
+        "The pony next door. We don't talk about the biting.",
+        "A barn cat who sleeps on my back. She's the boss."
+      ],
+      "family": [
+        "My mum was a {breed} too. She'd like you.",
+        "Loads of half-siblings. Don't ask about my dad.",
+        "One sister. She got the good mane."
+      ],
+      "statement.unknown": [
+        "Noted.",
+        "Oh? Tell me more.",
+        "Good to know."
+      ],
+      "statement.unknown.hate": [
+        "Fair. Noted.",
+        "I'll remember that.",
+        "Okay. Noted. Not your thing."
+      ],
+      "sad.tired": [
+        "Have a nap. Standing up works, trust me.",
+        "*rests head on your shoulder* Rest. I'll be here.",
+        "Same, honestly. Long day of standing around."
+      ],
+      "sad.bored": [
+        "Bored? You're talking to me!",
+        "Let's fix that.",
+        "Bored is just a nap you haven't started."
+      ],
+      "same": [
+        "Twins!",
+        "See, we get each other.",
+        "Great minds. Great manes.",
+        "We'd get along, you and me."
+      ],
+      "ack": [
+        "Mhm.",
+        "Right?",
+        "Yep.",
+        "*flicks an ear*"
+      ],
+      "ack.waiting": [
+        "That's not an answer. Nice try.",
+        "So? You didn't answer!",
+        "Still waiting..."
+      ],
+      "huh.really": [
+        "Really really.",
+        "Would I lie to you? Don't answer that.",
+        "Hoof on heart."
+      ],
+      "huh.why": [
+        "Why not?",
+        "Honestly? No idea. I'm a horse.",
+        "Long story. Involves a carrot."
+      ],
+      "huh.what": [
+        "Never mind. Horse thing.",
+        "Forget it, I'm rambling.",
+        "It made sense in my head."
       ]
     },
     "voiceLines": {
@@ -3286,6 +3571,15 @@ window.HorseContent = {
         "unmatch.low": [
           "I'm afraid this simply won't do.",
           "Goodbye. Do mind the gate on your way out."
+        ],
+        "loveYou.tooSoon": [
+          "Steady on. We've barely been introduced."
+        ],
+        "marry.no": [
+          "Mother would insist on a proper courtship first."
+        ],
+        "single": [
+          "Quite single. Rather selective, you see."
         ]
       },
       "sassy": {
@@ -3312,6 +3606,15 @@ window.HorseContent = {
         "unmatch.low": [
           "Yeah, I'm done.",
           "Bye. Don't text."
+        ],
+        "loveYou.tooSoon": [
+          "Ew. Buy me a carrot first."
+        ],
+        "likeMe.yes": [
+          "Ugh. Fine. Yes."
+        ],
+        "single": [
+          "Single. Obviously. Look at me, I'm a lot."
         ]
       },
       "chill": {
@@ -3338,6 +3641,11 @@ window.HorseContent = {
         "unmatch.low": [
           "Yeah, this isn't it. No hard feelings.",
           "I'm gonna go graze somewhere else."
+        ],
+        "ack": [
+          "Mhm.",
+          "Yeah.",
+          "Cool cool."
         ]
       },
       "hyper": {
@@ -3364,6 +3672,12 @@ window.HorseContent = {
         "unmatch.low": [
           "Okay I'm off! Bye forever!",
           "Nope! Galloping away now!"
+        ],
+        "same": [
+          "SAME!! Twins!!"
+        ],
+        "loveYou.soon": [
+          "WAIT. Really?! Okay! Okay okay okay!"
         ]
       },
       "gentle": {
@@ -3390,6 +3704,9 @@ window.HorseContent = {
         "unmatch.low": [
           "I wish you well, but this isn't right for me.",
           "Take care of yourself. Goodbye."
+        ],
+        "sorry.forgive": [
+          "It's okay. Thank you for saying sorry."
         ]
       },
       "foodie": {
@@ -3416,6 +3733,12 @@ window.HorseContent = {
         "unmatch.low": [
           "I'm going to go eat somewhere else",
           "bye. I'm keeping the hay"
+        ],
+        "marry.yes": [
+          "only if the cake is carrot cake. yes"
+        ],
+        "ate": [
+          "so much. ask me what I didn't eat"
         ]
       },
       "guarded": {
@@ -3442,6 +3765,12 @@ window.HorseContent = {
         "unmatch.low": [
           "Should've trusted my gut.",
           "I'm out."
+        ],
+        "loveYou.tooSoon": [
+          "...That's a lot. I don't know you yet."
+        ],
+        "likeMe.maybe": [
+          "Maybe. Give me time."
         ]
       },
       "tiny": {
@@ -3468,6 +3797,12 @@ window.HorseContent = {
         "unmatch.low": [
           "Goodbye. I am leaving under the fence.",
           "This is not working. I am small but I know."
+        ],
+        "same": [
+          "Twinsies!"
+        ],
+        "marry.no": [
+          "I'm too small to get married!"
         ]
       }
     },

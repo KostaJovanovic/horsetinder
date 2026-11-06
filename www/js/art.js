@@ -651,6 +651,11 @@
   }
 
   function render(spec, opts) {
+    // A real photo (the real horse in content.js): { src, pos, credit }
+    if (spec && spec.src) {
+      return `<img class="real-photo" src="${esc(spec.src)}" alt="${esc((opts && opts.label) || "Horse photo")}"` +
+        (spec.pos ? ` style="object-position: ${esc(spec.pos)}"` : "") + ">";
+    }
     const S = window.HorseSettings;
     if (S && S.get().classicArt && window.HorseArtClassic) return window.HorseArtClassic.render(spec, opts);
     opts = opts || {};

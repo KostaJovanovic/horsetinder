@@ -21,7 +21,8 @@ const PENDING = [
 ];
 
 let checks = 0;
-for (const horse of D.buildDeck(12345, 10, {})) {
+// (not the real horse: it doesn't ask questions or understand answers, see 15)
+for (const horse of D.buildDeck(12345, 10, {}).filter(h => !h.real)) {
   // ghostAfter 0: a ghosting horse ignores every message, which isn't what this tests
   const h = Object.assign({}, horse, { prefs: Object.assign({}, horse.prefs, { ghostAfter: 0 }) });
   for (const p of PENDING) {
@@ -138,6 +139,75 @@ const fresh = (vibe, horse) => { const x = { horse: horse || plain(), messages: 
   K.typos.hyper = keep;
   assert.ok(r.replies.some(s => /^\*[A-Za-z]+$/.test(s)), "no typo correction: " + r.replies);
   checks++;
+}
+
+// From here on the checks look for exact words, so no random typos
+K.typos = {};
+
+// 12. "but" splits a statement: liking one thing and not the other
+{
+  const x = fresh();
+  const said = [];
+  const keep = K.lines;
+  K.lines = Object.assign({}, keep, { "statement.ok": ["LIKE {x}"], "statement.meh": ["LIKE {x}"], "statement.food": ["LIKE {x}"],
+    "statement.love": ["LIKE {x}"], "statement.secret": ["LIKE {x}"], "dislike.ok": ["NOT {x}"], "dislike.love": ["NOT {x}"], "dislike.hate": ["NOT {x}"] });
+  said.push(C.respond(x, me, "I love carrots but hate mud").replies.join(" "));
+  K.lines = keep;
+  assert.ok(/LIKE carrots/i.test(said[0]) && /NOT mud/i.test(said[0]), "but-split: " + said[0]);
+  checks++;
+}
+
+// 13. Small things people type
+{
+  assert.strictEqual(D.fill("I'm a {breed}.", { breed: "Akhal-Teke" }), "I'm an Akhal-Teke.", "a/an");
+  assert.strictEqual(D.fill("a {breed}", { breed: "Shire" }), "a Shire", "a/an");
+  const x = fresh(60);
+  C.respond(x, me, "you're ugly");
+  const hurt = x.vibe;
+  C.respond(x, me, "sorry");
+  assert.ok(x.vibe > hurt, "sorry after an insult didn't help");
+  const again = x.vibe;
+  C.respond(x, me, "so sorry");
+  assert.ok(x.vibe <= again, "sorry counted twice for one insult");
+  const y = fresh();
+  const r = C.respond(y, me, "what are you looking for?");
+  assert.ok(!/known for|bred/i.test(r.replies.join(" ")) && r.replies.length, "looking-for answered with the breed: " + r.replies);
+  y.mem.pending = { type: "yesno", about: "mud" };
+  C.respond(y, me, "ok");
+  assert.ok(y.mem.pending, "the first ok should still wait for an answer");
+  C.respond(y, me, "cool");
+  assert.ok(!y.mem.pending || y.mem.pending.about !== "mud", "the second ok should let the question go");
+  const z = fresh();
+  assert.ok(C.respond(z, me, "❤️").vibe > 0, "a heart did nothing");
+  checks += 6;
+}
+
+// 14. Grammar in lines, and short replies run together
+{
+  assert.strictEqual(D.fill("{X} is the best.", { x: "carrots" }), "Carrots are the best.", "plural verb");
+  assert.strictEqual(D.fill("{x} isn't for me", { x: "spooking at bags" }), "spooking at bags isn't for me", "an -ing activity is one thing");
+  assert.strictEqual(D.fill("{X} is fine", { x: "grass" }), "Grass is fine", "grass isn't a plural");
+  const keep = K.lines;
+  K.lines = Object.assign({}, keep, { same: ["SAME"], ack: ["ACK"], "huh.really": ["REALLY"], laugh: ["LAUGH"], yes: ["YES"] });
+  const said = t => { const x = fresh(); x.mem.pending = null; return C.respond(x, me, t).replies.join(" "); };
+  const got = ["oh same lol", "yeah same", "ok cool", "wait really??", "haha ok"].map(said);
+  K.lines = keep;
+  assert.ok(/SAME/.test(got[0]) && /SAME/.test(got[1]) && /ACK/.test(got[2]) && /REALLY/.test(got[3]) && /LAUGH/.test(got[4]), "short replies: " + got);
+  checks += 4;
+}
+
+// 15. The real horse: its own photos with credits, and only noises from its own lines
+{
+  const real = D.buildDeck(1, 0, {}).filter(h => h.real)[0];
+  assert.ok(real && real.photos.length && real.photos.every(p => p.src && p.credit), "real horse photos: " + JSON.stringify(real && real.photos));
+  const x = fresh(50, Object.assign({}, real, { prefs: Object.assign({}, real.prefs, { ghostAfter: 0 }) }));
+  const noises = [].concat(real.talk.greet, real.talk.snack, real.talk.lines);
+  for (const t of ["hi", "do you like carrots?", "what's your name?", "you're ugly", "*gives you an apple*", "want to meet up?"]) {
+    const r = C.respond(x, me, t);
+    assert.ok(r.replies.length && r.replies.every(s => noises.indexOf(s) >= 0) && !r.unmatch, `real horse said "${r.replies}" to "${t}"`);
+  }
+  assert.ok(C.opener(x, me).every(s => real.talk.greet.indexOf(s) >= 0), "real horse opener");
+  checks += 3;
 }
 
 console.log(`chat: ${checks} checks passed`);

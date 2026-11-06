@@ -98,6 +98,8 @@
         const ph = me.photos[index] || {};
         comment = A.pick(rand, LC.accessory[ph.accessory] || LC.pose[ph.pose] || LC.anyPhoto);
       }
+      // The real horse can't read: it comments in its own noises
+      if (h.real && h.talk && h.talk.lines && h.talk.lines.length) comment = A.pick(rand, h.talk.lines);
     }
     return { kind, index, comment };
   }

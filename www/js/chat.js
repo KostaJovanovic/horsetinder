@@ -58,6 +58,7 @@
   function lookup(w) {
     if (INDEX[w]) return INDEX[w];
     if (w.length > 3 && w.charAt(w.length - 1) === "s" && INDEX[w.slice(0, -1)]) return INDEX[w.slice(0, -1)];
+    if (w.length > 4 && /(?:ch|sh|x|s)es$/.test(w) && INDEX[w.slice(0, -2)]) return INDEX[w.slice(0, -2)]; // beaches, peaches
     if (w.length >= 6) {
       const max = w.length >= 9 ? 2 : 1;
       for (let i = 0; i < LONG_WORDS.length; i++) if (close(w, LONG_WORDS[i], max)) return INDEX[LONG_WORDS[i]];
@@ -66,7 +67,14 @@
   }
 
   function analyze(raw) {
-    let t = String(raw).toLowerCase().replace(/[‘’`]/g, "'").replace(/\s+/g, " ").trim();
+    let t = String(raw).toLowerCase().replace(/[‘’`]/g, "'")
+      // Emoji: hearts, laughing and crying faces count as words
+      .replace(/❤️|❤|♥️|♥|💕|💖|💗|💓|💘|💞|😍|🥰|😘/g, " <3 ").replace(/😂|🤣|😆|😹|😅/g, " lol ")
+      .replace(/😢|😭|☹️|☹|🙁|😞|😔/g, " sad ")
+      .replace(/\s+/g, " ").trim()
+      // Only at the start: "good morning" is hello, "I had a good night" isn't goodbye
+      .replace(/^good ?(?:morning|afternoon|evening|day)\b|^gm\b/, "hello")
+      .replace(/^(?:good ?night|night night|nighty night|sweet dreams|gn)\b/, "goodnight");
     const action = /^\*[^*]+\*$/.test(t);
     t = t.replace(/sugar cubes?/g, "sugarcube").replace(/hay ?nets?/g, "haynet").replace(/ice cream/g, "icecream")
       .replace(/dog food/g, "dogfood").replace(/glue factory/g, "glue").replace(/pony club/g, "ponyclub")
@@ -153,13 +161,14 @@
     let out = cap(text);
     const openers = K.openers[voice];
     // Never in front of an *action*: "Oh oh oh *takes it gently*" reads wrong
-    if (openers && openers.length && chance(0.18) && !/^(?:[A-Z]{2}|I\b|I'|\*)/.test(out)) {
+    if (openers && openers.length && chance(0.18) && !/^(?:[A-Z]{2}|I\b|I'|\*|(?:Oh|Ah|Hmm+|Ooh|Wait|Okay|Ok|Well|Yes|No|Ugh|Wow|Aww|Same|Yeah|Hey|Hi|Hello)\b)/.test(out)) {
       const o = rnd(openers);
       // "Well, hi" but "Indeed. Hi"
       out = o + (/[.!?] $/.test(o) ? out : out.charAt(0).toLowerCase() + out.slice(1));
     }
-    if (voice === "foodie") out = out.toLowerCase().replace(/\.(\s|$)/g, "$1").trim();
-    if (voice === "hyper") out = out.replace(/\.(\s|$)/g, "!$1").replace(/!(\s*)$/, "!!$1");
+    // A full stop, but not the end of "..."
+    if (voice === "foodie") out = out.toLowerCase().replace(/([^.]|^)\.(\s|$)/g, "$1$2").trim();
+    if (voice === "hyper") out = out.replace(/([^.]|^)\.(\s|$)/g, "$1!$2").replace(/!(\s*)$/, "!!$1");
     if (voice === "guarded") out = out.replace(/!+/g, ".");
     return out;
   }
@@ -296,6 +305,24 @@
       else if (op === "love" || op === "secret") out.say(out.line("dislike.love", v), -6, "!?");
       else out.say(out.line("dislike.ok", v), 0);
     }
+  }
+
+  /* "I love carrots but hate mud": the things in each part, with that part's feeling.
+     A part with no feeling word keeps the one before it ("except" turns it around);
+     a first part with none ("carrots are fine but...") is left out. */
+  function feelings(a, liked) {
+    const bits = a.t.split(/\b(but|though|although|however|whereas|except)\b/);
+    if (bits.length === 1) return [{ ents: a.ents, likes: liked }];
+    const parts = [];
+    let feel = null;
+    for (let i = 0; i < bits.length; i += 2) {
+      const part = bits[i];
+      if (/\b(?:hate|dislike|can't stand|don't|do not|not|never|no)\b/.test(part)) feel = false;
+      else if (/\b(?:like|love|adore|enjoy|into|fan of|favourite)\b/.test(part)) feel = true;
+      else if (bits[i - 1] === "except" && feel !== null) feel = !feel;
+      parts.push({ ents: analyze(part).ents, likes: feel });
+    }
+    return parts;
   }
 
   /* `asked` is set when an earlier topic in the same message already asked "Do you?" */
@@ -486,6 +513,7 @@
     mem.turns++;
 
     if (ghosting(m)) { out.ignore = true; return out; }
+    if (h.real) return realHorse(m, a, v, out);
 
     // The first reply of the day says how the horse is feeling today
     if (mem.moodDay !== today()) {
@@ -511,6 +539,14 @@
     const youToo = /^(?:and |what about |how about |)(?:you|yourself|you too)\s*\?*$|^(?:wbu|hbu)\b/.test(t);
     const askHate = /\b(?:do|would|did) you (?:hate|dislike|not like)\b|\bdon't you like\b/.test(t);
     const whatHate = /\bwhat (?:do you|don't you) (?:hate|dislike|not like|like least)\b|\bwhat don't you like\b|\banything you (?:hate|don't like)\b|\bpet peeves?\b/.test(t);
+    // Short replies that only keep the chat going, also run together: "ok cool", "oh same lol",
+    // "wait really??". Laughs are left out; a leading "oh", "wow" or "yeah" doesn't count.
+    const core = a.toks.filter(w => !/^(?:(?:ha)+h?|(?:he)+h?|l+o+l+|lmao+|rofl|xd)$/.test(w)).join(" ");
+    const bare = core.replace(/^(?:(?:oh+|ah+|omg|wow|wait|ok|okay|but|yeah|yea|yep|yes) )+/, "");
+    const ack = !!core && core.split(" ").every(w =>
+      /^(?:ok(?:ay)?|k+|cool|nice|neat|fair|enough|true|wow|oh+|ah+|a+w+|h+m+|interesting|right|got|it|i|see|makes|sense|fun|lovely|alright|omg|sweet)$/.test(w));
+    const same = /^(?:me too|me 2|same(?: here)?(?: tbh)?|same+|me neither|neither do i|so do i|ditto|relatable|mood)$/.test(bare);
+    const huh = /^(?:really|seriously|for real|fr|no way|omg|wait what|is that true|why|why not|how|how come|what|huh|wdym|what do you mean|meaning|tell me more|go on|and then|then what)$/.exec(bare);
     if (!gift) mem.giftStreak = 0;
     if (ent) mem.lastTopic = ent.c.id;
 
@@ -518,7 +554,7 @@
     if (W.glue) { out.say(out.line("glue"), -40, "!?"); out.ask = false; return finish(m, out, voice, me); }
 
     // 2. Insults (but "you're not ugly" is fine)
-    if (W.insult && !/\bnot\b|\bn't\b/.test(t) && !iHate) {
+    if ((W.insult && !/\bnot\b|\bn't\b/.test(t) && !iHate) || /\bi (?:hate|can't stand|don't like) you\b|\bshut up\b/.test(t)) {
       mem.insults++;
       if (mem.insults >= 2) { out.unmatch = true; out.say(out.line("insult.last"), -30); return finish(m, out, voice, me); }
       out.say(out.line("insult"), -25, "!?");
@@ -546,11 +582,39 @@
       return finish(m, out, voice, me);
     }
 
+    // Feelings about the horse itself
+    const loveYou = /\b(?:i love you|love you|ily|i adore you)\b/.test(t);
+    const missYou = /\b(?:i miss(?:ed)? you|miss(?:ed)? you|thinking (?:of|about) you)\b/.test(t);
+    const likeMe = /\bdo you (?:like|love|fancy) me\b|\bare you into me\b|\bdo you think i'm (?:cute|nice)\b/.test(t);
+    const marry = /\bmarry me\b|\bmarry you\b|\bwill you marry\b|\bget married\b/.test(t);
+    if (/\b(?:sorry|apologi[sz]e|my bad|forgive me)\b/.test(t) && !ent) {
+      // Saying sorry after an insult wins some of it back, once per insult
+      if (mem.insults > (mem.forgiven || 0)) { mem.forgiven = mem.insults; out.say(out.line("sorry.forgive"), 12); }
+      else out.say(out.line("sorry"));
+      out.ask = false;
+      return finish(m, out, voice, me);
+    }
+    if (marry) { out.say(out.line(m.vibe >= 90 ? "marry.yes" : "marry.no"), m.vibe >= 90 ? 3 : 0, m.vibe >= 90 ? "♥" : null); out.ask = false; return finish(m, out, voice, me); }
+    if (loveYou) {
+      if (m.vibe >= 80) out.say(out.line("loveYou.yes"), 4, "♥");
+      else if (m.vibe >= 55) { out.say(out.line("loveYou.soon"), 1); out.mood = "shy"; }
+      else out.say(out.line("loveYou.tooSoon"), -2);
+      out.ask = false;
+      return finish(m, out, voice, me);
+    }
+    if (missYou) { out.say(out.line(m.vibe >= 60 ? "missYou.yes" : "missYou.no"), m.vibe >= 60 ? 3 : 0, m.vibe >= 60 ? "♥" : null); return finish(m, out, voice, me); }
+    if (likeMe) { out.say(out.line(m.vibe >= 75 ? "likeMe.yes" : m.vibe >= 50 ? "likeMe.maybe" : "likeMe.no"), 1); out.ask = false; return finish(m, out, voice, me); }
+    if (/<3/.test(t) && !ent) { out.say(out.line("heart"), 2, "♥"); out.mood = "shy"; return finish(m, out, voice, me); }
+
     // 4. Statements: "I love mud", "I hate carrots", "apples are my favourite".
-    // Two things at once ("I love carrots and mud") get a reaction each.
-    // shortcut: "I love carrots but hate mud" counts as liking both; split on "but" if it matters.
+    // Two things at once ("I love carrots and mud") get a reaction each, and
+    // "I love carrots but hate mud" one of each.
     if ((iLike || iHate) && ent && !a.isQ) {
-      a.ents.slice(0, 2).forEach(e => { if (!out.unmatch) aboutStatement(h, e, iLike && !iHate, out, mem); });
+      let n = 0;
+      feelings(a, iLike && !iHate).forEach(p => {
+        if (p.likes !== null) p.ents.forEach(e => { if (n < 2 && !out.unmatch) { n++; aboutStatement(h, e, p.likes, out, mem); } });
+      });
+      if (!n) a.ents.slice(0, 2).forEach(e => { if (!out.unmatch) aboutStatement(h, e, iLike && !iHate, out, mem); });
       if (mem.pending) mem.pending = null;
       return finish(m, out, voice, me);
     }
@@ -566,8 +630,14 @@
     // ("hey", "bye", "lol" and the like aren't answers, so they skip this,
     // except "great, thanks" to "how are you", which is one)
     const moodAnswer = mem.pending && mem.pending.type === "mood" && (W.happy || W.sad);
-    const smallTalk = (W.hello || W.bye || W.laugh || W.thanks || W.compliment || W.kiss || W.joke) && !a.ents.length && !moodAnswer;
+    const smallTalk = (W.hello || W.bye || W.laugh || W.thanks || W.compliment || W.kiss || W.joke || ((ack || same) && !W.yes && !W.no)) && !a.ents.length && !moodAnswer;
     if (mem.pending && !a.isQ && !smallTalk && answerPending(m, me, a, out)) return finish(m, out, voice, me);
+
+    // "My favourite colour is blue": something about you the horse has no opinion on
+    if ((iLike || iHate) && !ent && !a.isQ && !a.action) {
+      out.say(out.line(iHate ? "statement.unknown.hate" : "statement.unknown"), 1);
+      return finish(m, out, voice, me);
+    }
 
     // 6. Actions like *nuzzles*
     if (a.action) {
@@ -583,7 +653,14 @@
     // 7. Questions about the horse
     const yourAge = /\bhow old\b|\byour age\b/.test(t);
     const yourName = /\bwhat is your name\b|\bwho are you\b|\byour name\b/.test(t);
-    const yourBreed = /\bwhat (?:breed|kind of horse|type of horse|kind are you)\b|\byour breed\b|\bwhat are you\b/.test(t);
+    // "what are you" alone, not "what are you looking for"
+    const yourBreed = /\bwhat (?:breed|kind of horse|type of horse|kind are you)\b|\byour breed\b|\bwhat are you\W*$/.test(t);
+    const single = /\bare you single\b|\bseeing (?:any|some)(?:one|body)\b|\b(?:boy|girl)friend\b|\bare you taken\b|\bin a relationship\b/.test(t);
+    const lookingFor = /\b(?:what are you|what're you|are you) looking for\b|\bwhat do you want (?:from|in|on)\b|\bwhy are you (?:on|here)\b/.test(t);
+    const aboutYou = /\b(?:tell me|talk) (?:\w+ )?about (?:you|yourself)\b|\babout yourself\b|\bdescribe yourself\b|\bwho are you really\b/.test(t);
+    const ate = /\bwhat (?:did|have) you (?:eat|eaten|have for)\b|\bwhat did you have\b|\bare you hungry\b|\bhave you eaten\b/.test(t);
+    const friends = a.isQ && /\bbest friends?\b|\bbff\b|\b(?:any|have|got) friends\b|\bwho are your friends\b/.test(t);
+    const family = a.isQ && /\bsiblings?\b|\bbrothers?\b|\bsisters?\b|\bfamily\b|\bparents\b|\byour (?:mum|mom|mother|dad|father)\b|\bfoals?\b/.test(t);
     const yourHeight = /\bhow (?:tall|big|high)\b|\byour height\b|\bhow many hands\b/.test(t);
     const where = /\bwhere (?:are|do) you\b|\bwhere is your\b|\bhow far\b|\bnear me\b/.test(t);
     const howAreYou = /\bhow are you\b|\bhow is it going\b|\bhow's it going\b|\bhow are things\b|\bhow have you been\b|\bhow is your day\b|\bhow's your day\b|\bwhat is up\b|\bsup\b|\bhow you doing\b/.test(t);
@@ -622,6 +699,12 @@
       return finish(m, out, voice, me);
     }
     if (bot) { out.say(out.line("bot"), 0); return finish(m, out, voice, me); }
+    if (single) { out.say(out.line("single"), 1); return finish(m, out, voice, me); }
+    if (lookingFor) { out.say(out.line("lookingFor." + (h.lookingFor || "unsure")) || out.line("lookingFor.unsure"), 1); return finish(m, out, voice, me); }
+    if (aboutYou) { out.say(out.line("aboutMe"), 1); return finish(m, out, voice, me); }
+    if (ate) { out.say(out.line("ate"), 1); return finish(m, out, voice, me); }
+    if (family) { out.say(out.line("family"), 1); return finish(m, out, voice, me); }
+    if (friends) { out.say(out.line("friends"), 1); return finish(m, out, voice, me); }
     if (howAreYou) {
       out.say(out.line(howAreYouKey(h)), 1);
       out.say(out.line("howAreYou.back"));
@@ -717,9 +800,15 @@
       out.ask = false;
       return finish(m, out, voice, me);
     }
-    if (W.laugh) { out.say(out.line("laugh"), 3, "ha"); return finish(m, out, voice, me); }
+    if (W.laugh && !same && !huh) { out.say(out.line("laugh"), 3, "ha"); return finish(m, out, voice, me); }
     if (W.thanks) { out.say(out.line("thanks"), 1); return finish(m, out, voice, me); }
-    if (W.sad && !a.isQ) { out.mood = "sad"; out.say(out.line("sad"), 4); out.ask = false; return finish(m, out, voice, me); }
+    if (W.sad && !a.isQ) {
+      const kind = /\b(?:tired|exhausted|sleepy)\b/.test(t) ? "sad.tired" : /\bbored\b/.test(t) ? "sad.bored" : "sad";
+      if (kind === "sad") out.mood = "sad";
+      out.say(out.line(kind) || out.line("sad"), 4);
+      out.ask = kind === "sad.bored"; // bored: give them something to answer
+      return finish(m, out, voice, me);
+    }
     if (W.weather) {
       const muddy = opinion(h, BY_ID.mud);
       out.say(out.line(/rain|storm/.test(t) ? (muddy === "love" || muddy === "secret" ? "weather.rain.mud" : "weather.rain")
@@ -749,6 +838,26 @@
       else out.say(out.line("passing.other", ev));
       return finish(m, out, voice, me);
     }
+    // "ok", "same", "really?": keep it going instead of changing the subject
+    // ("no way" and "yeah same" before the plain yes and no)
+    if (same) { out.say(out.line("same"), 2); return finish(m, out, voice, me); }
+    if (ack) {
+      // Once per question it waits for an answer; the second "ok" and it lets it go
+      const mark = mem.pending && mem.asked.length + ":" + mem.pending.type;
+      if (mem.pending && mem.waited !== mark) { mem.waited = mark; out.say(out.line("ack.waiting")); out.ask = false; }
+      else { mem.pending = null; out.say(out.line("ack")); out.ask = true; }
+      return finish(m, out, voice, me);
+    }
+    if (huh) {
+      const w = huh[0];
+      if (/^(?:tell me more|go on|and then|then what)$/.test(w)) {
+        const story = nextStory(m);
+        if (story) { story.forEach((s, i) => out.say(out.fill(s), i ? 0 : 1)); out.ask = false; return finish(m, out, voice, me); }
+      }
+      out.say(out.line(/^(?:why|why not|how|how come)$/.test(w) ? "huh.why" : /^(?:what|huh|wdym|what do you mean|meaning)$/.test(w) ? "huh.what" : "huh.really"));
+      out.ask = false;
+      return finish(m, out, voice, me);
+    }
     if ((W.yes || W.no) && !a.isQ) { out.say(out.line(W.yes ? "yes" : "no")); return finish(m, out, voice, me); }
 
     // 13. Nothing recognised
@@ -764,6 +873,23 @@
     }
     out.ask = true;
     return finish(m, out, voice, me);
+  }
+
+  /* The real horse (content.js horses, "real": true) understands nothing but food and hello.
+     Its noises are its talk lines; no questions, faces, openers or typos. */
+  function realHorse(m, a, v, out) {
+    const W = a.words;
+    const food = a.ents.some(e => e.c.kind === "food" || e.c.kind === "bad");
+    const gift = a.action && /^\*\s*(?:gives?|hands?|offers?|brings?|tosses?|throws?|shares?|feeds?)\b/.test(a.t);
+    if (food) out.say(out.fill(rnd(v.snack)), gift ? 6 : 2, gift ? "♥" : null);
+    else if (W.hello && !m.mem.userGreeted) { m.mem.userGreeted = true; out.say(out.fill(rnd(v.greet)), 1); }
+    else {
+      out.say(out.fill(rnd(v.lines)), chance(0.5) ? 1 : 0);
+      if (chance(0.3)) out.say(out.fill(rnd(v.lines)));
+    }
+    m.vibe = Math.max(0, Math.min(100, m.vibe + out.vibe));
+    delete out.say; delete out.line; delete out.fill;
+    return out;
   }
 
   /* A story the horse hasn't told yet: about its own likes first, then its discipline,
@@ -846,10 +972,13 @@
     // Now and then it uses your name: "Dave, same!! I love mud." After style(), so no
     // opener ends up in front of it and lowercases it.
     const nick = nickOf(m, me);
-    if (nick && !out.unmatch && chance(0.07)) {
-      const i = out.replies.findIndex(r => !/^\*/.test(r) && r.indexOf(nick) < 0 && r.indexOf(h.name) !== 0 && !/^(?:[A-Z]{2}|I\b|I')/.test(r));
-      const pre = i >= 0 && out.line("name.prefix", { nick });
-      if (pre) out.replies[i] = pre + out.replies[i].charAt(0).toLowerCase() + out.replies[i].slice(1);
+    // Only on the first bubble (not halfway through a story), and not on top of an opener
+    const first = out.replies[0] || "";
+    const opened = (K.openers[voice] || []).some(o => first.indexOf(o.trim()) === 0);
+    if (nick && !out.unmatch && chance(0.07) && !opened && first.length >= 15 && !/^\*/.test(first) && first.indexOf(nick) < 0 &&
+        first.indexOf(h.name) !== 0 && !/^(?:[A-Z]{2}|I\b|I')/.test(first)) {
+      const pre = out.line("name.prefix", { nick });
+      if (pre) out.replies[0] = pre + first.charAt(0).toLowerCase() + first.slice(1);
     }
     if (out.moodFirst && !out.unmatch && out.replies.length) out.replies.unshift(style(out.moodFirst, voice));
     addFaces(out, voice);
@@ -882,6 +1011,7 @@
     const h = m.horse, v = D.voiceFor(h), voice = h.voice || "chill";
     m.mem.greeted = true;
     const vars = varsFor(m, me);
+    if (h.real) return [D.fill(rnd(v.greet), vars)];
     const lines = [D.fill(rnd(v.greet), vars)];
     if (m.mem.moodDay !== today()) { m.mem.moodDay = today(); lines.push(line("mood." + moodId(h) + ".first", vars, voice)); }
     const shared = me.interests.filter(i => h.likes.indexOf(i) >= 0)[0];

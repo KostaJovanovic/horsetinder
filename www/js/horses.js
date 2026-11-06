@@ -31,14 +31,29 @@
 
   /* Fills a line from content.js: {x} puts in a value, {X} the same value capitalised,
      {a|b|c} picks one at random. Unknown names are left as they are, so a typo shows. */
+  const PLURAL_VERB = { is: "are", "isn't": "aren't", was: "were", "wasn't": "weren't", has: "have" };
+  // shortcut: "ends in s" is good enough for the labels in content.js (carrots, oats, grass, dressage,
+  // "spooking at bags" is one activity); a singular word ending in -s would need a list here
+  const isPlural = v => !!v && /[^su]s$/i.test(v) && !/(?:is|ics)$/i.test(v) && !/^\w+ing\b/i.test(v);
+
   function fill(text, vars) {
-    return String(text).replace(/\{([^{}]+)\}/g, (all, k) => {
-      if (k.indexOf("|") >= 0) { const opts = k.split("|"); return opts[Math.floor(Math.random() * opts.length)]; }
+    const val = k => {
       if (vars && vars[k] != null) return String(vars[k]);
       const lo = k.charAt(0).toLowerCase() + k.slice(1);
       if (vars && lo !== k && vars[lo] != null) return cap(vars[lo]);
-      return all;
-    });
+      return null;
+    };
+    return String(text)
+      // "a {breed}" becomes "an Akhal-Teke" when the value starts with a vowel
+      .replace(/\b([Aa]) (?=\{([^{}|]+)\})/g, (all, a, k) => /^[aeiou]/i.test(val(k) || "") ? a + "n " : all)
+      // "{X} is the best" becomes "Carrots are the best" when the value is a plural
+      .replace(/(\{([^{}|]+)\}) (is|isn't|was|wasn't|has)(?![\w'])/g, (all, ph, k, verb) =>
+        isPlural(val(k)) ? ph + " " + PLURAL_VERB[verb] : all)
+      .replace(/\{([^{}]+)\}/g, (all, k) => {
+        if (k.indexOf("|") >= 0) { const opts = k.split("|"); return opts[Math.floor(Math.random() * opts.length)]; }
+        const v = val(k);
+        return v == null ? all : v;
+      });
   }
 
   /* What a horse's own lines can mention */
@@ -168,7 +183,9 @@
 
     all.forEach(h => {
       const r = A.mulberry32(A.hashString(h.id) ^ seed);
-      h.photos = A.variants(A.normalize(h.art), r, 2 + Math.floor(r() * 3));
+      // Handmade horses can bring their own real photos ({ src, pos, credit })
+      h.photos = h.ownPhotos && h.ownPhotos.length ? h.ownPhotos.map(p => Object.assign({}, p))
+        : A.variants(A.normalize(h.art), r, 2 + Math.floor(r() * 3));
       h.prefs = window.HorsePrefs.generate(h, r);
       h.prompts = makePrompts(h, r, h.ownPrompts); // last, so photos and prefs stay as they were
     });

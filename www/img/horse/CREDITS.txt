@@ -1,0 +1,9 @@
+Photos of the real horse ("Horse" in content.js), a draft horse on the island of Juist,
+Germany, 6 October 2009. All by 4028mdk09, licensed CC BY-SA 3.0
+(https://creativecommons.org/licenses/by-sa/3.0/), from Wikimedia Commons.
+Changes: scaled down to 800 x 600 and recompressed. These copies are under CC BY-SA 3.0 too.
+
+sleeping.jpg       https://commons.wikimedia.org/wiki/File:Schlafendes_Kaltblut.JPG
+rolling.jpg        https://commons.wikimedia.org/wiki/File:Sich_w%C3%A4lzendes_Kaltblut.JPG
+walking-away.jpg   https://commons.wikimedia.org/wiki/File:Arbeitspferd_Salzwiese.JPG
+with-a-friend.jpg  https://commons.wikimedia.org/wiki/File:G%C3%A4hnendes_Kaltblut.JPG

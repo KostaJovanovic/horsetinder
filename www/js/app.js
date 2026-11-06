@@ -74,7 +74,9 @@
     const prompts = !full ? [] : self ? (h.prompts || []) : D.promptsOf(h);
     const heart = (kind, i) => opts.likeable
       ? `<button class="hc-like" type="button" data-like="${kind}:${i}" aria-label="Like this ${kind}">${HEART_SVG}</button>` : "";
-    const photo = i => `<figure class="hc-photo">${A.render(photos[i], { label: self ? "Your photo " + (i + 1) : "Photo " + (i + 1) + " of " + h.name })}${heart("photo", i)}</figure>`;
+    // Real photos carry their credit (CC BY-SA asks for one where the photo shows)
+    const credit = i => photos[i].credit ? `<small class="hc-credit">${esc(photos[i].credit)}</small>` : "";
+    const photo = i => `<figure class="hc-photo">${A.render(photos[i], { label: self ? "Your photo " + (i + 1) : "Photo " + (i + 1) + " of " + h.name })}${credit(i)}${heart("photo", i)}</figure>`;
     const prompt = i => `<section class="hc-prompt"><p class="hc-q">${esc(prompts[i].q)}</p><p class="hc-a">${esc(prompts[i].a)}</p>${heart("prompt", i)}</section>`;
     const vitals = [D.SEXES[h.sex], h.breed, D.fmtHeight(h.inches), h.discipline,
       self ? "" : D.fmtDist(h.distance) + " away", D.LOOKING[h.lookingFor]].filter(Boolean);

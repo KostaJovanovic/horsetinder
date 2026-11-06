@@ -221,6 +221,14 @@ body {
 /* Square, so the whole 240 x 240 picture shows. Height via padding (aspect-ratio needs Chrome 88). */
 .hc-photo { position: relative; height: 0; padding-top: 100%; margin: 0 12px; border-radius: 14px; overflow: hidden; }
 .hc-photo > svg { position: absolute; top: 0; left: 0; display: block; width: 100%; height: 100%; }
+/* Real photos (the real horse): cropped to fill whatever box a drawn horse would */
+.real-photo { display: block; width: 100%; height: 100%; object-fit: cover; }
+.hc-photo > .real-photo, .like-photo .real-photo { position: absolute; top: 0; left: 0; }
+.hc-credit {
+  position: absolute; left: 8px; bottom: 6px; max-width: calc(100% - 64px);
+  padding: 1px 6px; border-radius: 6px; background: rgba(0, 0, 0, 0.45); color: #fff;
+  font-size: 0.62rem; line-height: 1.5;
+}
 .hc-photo + *, * + .hc-photo { margin-top: 12px; }
 
 .hc-vitals {
