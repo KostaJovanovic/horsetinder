@@ -18,7 +18,7 @@ const PENDING = [
   { type: "fav_food" }, { type: "fun" }, { type: "choice", a: "gallop", b: "nap" }, { type: "yesno", about: "mud" },
   { type: "likeback", about: "carrot" }, { type: "morning_night" }, { type: "human" }, { type: "mood" },
   { type: "open" }, { type: "name" },
-];
+].concat(window.HorseContent.chat.scenarios.map(s => ({ type: "scenario", id: s.id })));
 
 let checks = 0;
 // (not the real horse: it doesn't ask questions or understand answers, see 15)
@@ -194,6 +194,35 @@ K.typos = {};
   K.lines = keep;
   assert.ok(/SAME/.test(got[0]) && /SAME/.test(got[1]) && /ACK/.test(got[2]) && /REALLY/.test(got[3]) && /LAUGH/.test(got[4]), "short replies: " + got);
   checks += 4;
+}
+
+// 16. Minigames: combos, scenarios and goals
+{
+  // Good replies in a row: the third counts x1.5, a bad one ends the combo
+  const x = fresh(20);
+  const v = ["you're gorgeous", "you're so pretty", "you're beautiful"].map(t => C.respond(x, me, t).vibe);
+  assert.ok(x.mem.combo === 3 && v[2] > v[0], "combo: " + v + " combo " + x.mem.combo);
+  C.respond(x, me, "you're ugly");
+  assert.strictEqual(x.mem.combo, 0, "an insult kept the combo");
+  // "Let's play a game" starts a scenario whose cards are the quick replies
+  const y = fresh();
+  C.respond(y, me, "let's play a game");
+  const s = K.scenarios.filter(q => q.id === (y.mem.pending && y.mem.pending.id))[0];
+  assert.ok(s && C.suggestions(y, me).join() === s.cards.map(c => c.text).join(), "no scenario cards: " + JSON.stringify(y.mem.pending));
+  // A card about something the horse secretly loves gives it away and finishes two goals
+  const lover = plain();
+  const secret = lover.prefs.lovesInterests[0];
+  const concept = K.concepts.filter(c => c.interest === secret)[0];
+  const z = fresh(50, lover);
+  const keep = K.scenarios;
+  K.scenarios = [{ id: "t", text: ["Pick"], cards: [{ text: "That one", about: concept.id, vibe: -5, reply: ["no"] }] }];
+  C.respond(z, me, "let's play a game");
+  const r = C.respond(z, me, "That one");
+  K.scenarios = keep;
+  assert.ok(r.vibe > 0 && z.mem.learned.loves.indexOf(concept.label) >= 0, "secret card: " + JSON.stringify(r));
+  assert.ok(z.mem.goals.secret && z.mem.goals.game && r.goals.length >= 2, "goals: " + JSON.stringify(r.goals));
+  assert.ok(C.goals(z, me).filter(g => g.done).length >= 2, "goal checklist");
+  checks += 6;
 }
 
 // 15. The real horse: its own photos with credits, and only noises from its own lines

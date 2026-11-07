@@ -500,12 +500,13 @@
     vibeFill.style.width = v + "%";
     vibeEl.className = "vibe " + (v >= 62 ? "hi" : v >= 35 ? "mid" : "lo");
     vibeEl.setAttribute("aria-label", "Vibe: " + vibeWord(v));
-    $("vibe-word").textContent = vibeWord(v);
+    const combo = (m.mem && m.mem.combo) || 0;
+    $("vibe-word").textContent = vibeWord(v) + (combo >= 3 ? " ×" + (combo >= 5 ? 2 : 1.5) : "");
     vibeEl.hidden = m.status === "unmatched";
   }
-  function flashVibe(delta) {
+  function flashVibe(delta, combo) {
     if (!delta) return;
-    vibeDelta.textContent = (delta > 0 ? "+" : "−") + Math.abs(delta);
+    vibeDelta.textContent = (delta > 0 ? "+" : "−") + Math.abs(delta) + (delta > 0 && combo > 1 ? " combo ×" + combo : "");
     vibeDelta.className = "vibe-delta " + (delta > 0 ? "up" : "down");
     void vibeDelta.offsetWidth; // restart the animation
     vibeDelta.classList.add("show");
@@ -531,11 +532,13 @@
     chatForm.hidden = gone;
     quickEl.hidden = gone;
     const last = m.messages[m.messages.length - 1];
-    $("chat-status").textContent = gone ? "Unmatched"
+    const goals = C.goals(m, state.profile);
+    const stars = goals.length && !gone && !m.typing ? ` · ★ ${goals.filter(g => g.done).length}/${goals.length}` : "";
+    $("chat-status").textContent = (gone ? "Unmatched"
       : m.typing ? "typing…"
       : last && last.from === "me" && C.ghosting(m) ? "Seen"
       : m.mem && m.mem.date ? "Date: " + m.mem.date
-      : `${D.fmtDist(h.distance)} away, ${C.moodStatus(h)}`;
+      : `${D.fmtDist(h.distance)} away, ${C.moodStatus(h)}`) + stars;
     renderVibe(m);
   }
 
@@ -545,7 +548,9 @@
     const items = giftMode
       ? C.GIFTS.map(g => ({ label: g.label, text: g.text }))
       : C.suggestions(m, state.profile).map(s => ({ label: s, text: s }));
-    quickEl.innerHTML = items.map(it => `<button type="button" data-text="${esc(it.text)}"${giftMode ? ' class="gift"' : ""}>${esc(it.label)}</button>`).join("");
+    // A scenario's answers show as cards
+    const cls = giftMode ? ' class="gift"' : m.mem && m.mem.pending && m.mem.pending.type === "scenario" ? ' class="play"' : "";
+    quickEl.innerHTML = items.map(it => `<button type="button" data-text="${esc(it.text)}"${cls}>${esc(it.label)}</button>`).join("");
     quickEl.scrollLeft = 0;
     giftBtn.classList.toggle("on", giftMode);
     giftBtn.setAttribute("aria-pressed", String(giftMode));
@@ -626,12 +631,13 @@
   function checkDate(m) {
     if (!m || state.matches.indexOf(m) < 0 || (m.inbox && m.inbox.length)) return;
     const r = C.afterDate(m, state.profile);
-    if (r) queueReplies(m, r.replies, { vibe: r.vibe, unmatch: r.unmatch });
+    if (r) queueReplies(m, r.replies, { vibe: r.vibe, unmatch: r.unmatch, goals: r.goals, combo: r.combo });
   }
   /* Once the horse has said everything: the vibe moves, and maybe a date or an unmatch */
   function settle(m, a) {
     m.vibeShown = m.vibe;
-    if (activeChat === m) flashVibe(a.vibe);
+    if (activeChat === m) flashVibe(a.vibe, a.combo);
+    (a.goals || []).forEach(g => m.messages.push({ from: "sys", kind: "goal", text: "★ Goal: " + g }));
     if (a.date) {
       m.messages.push({ from: "sys", kind: "date", text: `Date set: ${a.date}` });
       if (Cal && HorseSettings.get().autoCalendar) setTimeout(() => addToCalendar(m), 400);
@@ -698,7 +704,7 @@
     // The reaction lands once the horse has "read" it
     if (r.react) setTimeout(() => { msg.react = r.react; if (activeChat === m) renderChat(); save(); }, 650);
 
-    queueReplies(m, r.replies, { vibe: r.vibe, date: r.date, unmatch: r.unmatch });
+    queueReplies(m, r.replies, { vibe: r.vibe, date: r.date, unmatch: r.unmatch, goals: r.goals, combo: r.combo });
   }
 
   chatForm.addEventListener("submit", e => {
@@ -966,6 +972,7 @@
     const facts = learned.loves.map(x => `<li class="love"><span aria-hidden="true">${HEART_SVG}</span>Loves ${esc(x)}</li>`)
       .concat(learned.hates.map(x => `<li class="hate"><span aria-hidden="true">✕</span>Can't stand ${esc(x)}</li>`));
     const vibe = typeof m.vibeShown === "number" ? m.vibeShown : m.vibe;
+    const goalList = C.goals(m, state.profile);
     horseBody.innerHTML = `
       <article class="card preview" id="horse-card">${cardHTML(h)}</article>
       <section class="hp-section">
@@ -983,6 +990,10 @@
         ${facts.length ? `<ul class="learned">${facts.join("")}</ul>`
           : `<p class="hp-empty">Nothing yet. Ask what ${esc(h.name)} likes, or bring up a few of your interests and watch the reaction.</p>`}
       </section>
+      ${goalList.length ? `<section class="hp-section">
+        <h3>Goals ${goalList.filter(g => g.done).length}/${goalList.length}</h3>
+        <ul class="goals">${goalList.map(g => `<li class="${g.done ? "done" : ""}"><span aria-hidden="true">${g.done ? "★" : "☆"}</span>${esc(g.text)}<span class="sr-only">${g.done ? " (done)" : ""}</span></li>`).join("")}</ul>
+      </section>` : ""}
       ${gone ? "" : `<button class="btn btn-wide" type="button" data-hp="chat">Message ${esc(h.name)}</button>`}
       <button class="btn-text danger" type="button" data-hp="unmatch">${gone ? "Remove from matches" : "Unmatch"}</button>`;
     horseEl.hidden = false;

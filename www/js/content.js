@@ -2744,7 +2744,8 @@ window.HorseContent = {
         "What's your favourite snack?",
         "What breed are you?",
         "*nuzzles*",
-        "What are you up to?"
+        "What are you up to?",
+        "Let's play a game"
       ],
       "first": [
         "*whinnies*"
@@ -2938,6 +2939,20 @@ window.HorseContent = {
         "Noted. Very important information.",
         "Tell me more sometime.",
         "I did not expect that answer. Good."
+      ],
+      "scenario.love": [
+        "{X}?? You get me. You actually get me.",
+        "Oh, I LOVE {x}. How did you know?",
+        "{X}! Best answer."
+      ],
+      "scenario.hate": [
+        "{X}? Ugh. Anything but {x}.",
+        "Hard pass on {x}. The hardest.",
+        "You thought I'd like {x}? We need to talk."
+      ],
+      "scenario.none": [
+        "We've played all my games! Ask me something instead.",
+        "I'm out of ideas. Your turn to entertain me."
       ],
       "repeat": [
         "You said that already.",
@@ -4069,6 +4084,88 @@ window.HorseContent = {
           "I look incredible."
         ]
       ]
-    }
+    },
+    "goals": {
+      "hearts": "Get 5 hearts from {name}",
+      "secret": "Find one of {name}'s secret loves",
+      "hate": "Find out what {name} can't stand",
+      "game": "Win one of {name}'s games",
+      "smitten": "Make {name} smitten",
+      "date": "Get a date"
+    },
+    "scenarios": [
+      {
+        "id": "bag",
+        "text": ["*a plastic bag comes tumbling across the field at us*", "Quick, what do we do?!"],
+        "cards": [
+          { "text": "Stand in front of you", "vibe": 8, "reply": ["My hero. My actual hero.", "*hides behind you* Okay, this is nice actually."] },
+          { "text": "Spook at it together", "about": "bags", "vibe": 3, "reply": ["We spooked SO hard. Bonding."] },
+          { "text": "It's just a bag", "vibe": -3, "reply": ["JUST a bag?? That's what it wants you to think."] }
+        ]
+      },
+      {
+        "id": "rain",
+        "text": ["It's pouring and the whole field's turned to mud.", "What's the plan?"],
+        "cards": [
+          { "text": "Roll in it together", "about": "mud", "vibe": 2, "reply": ["Bold. I respect it. My owner won't."] },
+          { "text": "Head for the barn", "about": "nap", "vibe": 3, "reply": ["Dry, warm, a hay net. Sensible."] },
+          { "text": "Lend you my rug", "about": "rugs", "vibe": 6, "reply": ["Aww. You'd get wet for me?"] }
+        ]
+      },
+      {
+        "id": "picnic",
+        "text": ["*spots a picnic on the other side of the fence*", "Those humans have a whole basket. What do we do?"],
+        "cards": [
+          { "text": "Steal the apples", "about": "apple", "vibe": 3, "reply": ["Partners in crime. I like it."] },
+          { "text": "Do big sad eyes", "vibe": 7, "reply": ["*does big eyes at the humans* ...it WORKED. We got half a sandwich."] },
+          { "text": "Leave them be", "vibe": -2, "reply": ["Wow. Okay. Good horse. Boring horse."] }
+        ]
+      },
+      {
+        "id": "show",
+        "text": ["Big show tomorrow and my mane is a disaster.", "Help?"],
+        "cards": [
+          { "text": "I'll plait it for you", "about": "groom", "vibe": 6, "reply": ["*holds very still* You're good at this."] },
+          { "text": "Skip it and nap", "about": "nap", "vibe": 1, "reply": ["Tempting. Very tempting."] },
+          { "text": "You look perfect already", "vibe": 7, "reply": ["Stop it. *tosses mane anyway*"] }
+        ]
+      },
+      {
+        "id": "gate",
+        "text": ["Someone left the paddock gate open...", "Are you thinking what I'm thinking?"],
+        "cards": [
+          { "text": "Gallop to the beach", "about": "beach", "vibe": 4, "reply": ["Sand! Waves! Nobody chasing us yet!"] },
+          { "text": "Raid the feed room", "vibe": 5, "reply": ["Oats everywhere. No regrets. Some regrets."] },
+          { "text": "Close it before we get caught", "vibe": -4, "reply": ["...You're no fun.", "Fine. Responsible. Hmph."] }
+        ]
+      },
+      {
+        "id": "snow",
+        "text": ["*wakes up* EVERYTHING IS WHITE", "What do we do first?"],
+        "cards": [
+          { "text": "Roll in the snow", "about": "snow", "vibe": 3, "reply": ["Cold. So cold. Again?"] },
+          { "text": "Stay in with a hay net", "about": "hay", "vibe": 2, "reply": ["Cosy. I'll allow it."] },
+          { "text": "Snow fight", "vibe": 6, "reply": ["Neither of us can throw. We just kicked snow at each other. Best day."] }
+        ]
+      },
+      {
+        "id": "goat",
+        "text": ["A goat just walked into my stable like it owns the place.", "What do I do?"],
+        "cards": [
+          { "text": "Make friends with it", "about": "goats", "vibe": 3, "reply": ["Its name is Gerald now. He stays."] },
+          { "text": "Ask it to leave politely", "vibe": 5, "reply": ["*clears throat* ...It ate my rug. But politely."] },
+          { "text": "Chase it out", "vibe": -2, "reply": ["Poor thing. Fine. It was eating my bedding anyway."] }
+        ]
+      },
+      {
+        "id": "stars",
+        "text": ["It's late and the sky is really clear tonight.", "*looks at you*"],
+        "cards": [
+          { "text": "Watch the stars together", "about": "stars", "vibe": 6, "reply": ["*leans on you a bit* This is nice."] },
+          { "text": "Race you to the hill", "about": "race", "vibe": 3, "reply": ["You lost. Gracefully, though."] },
+          { "text": "I'm off to bed", "vibe": -3, "reply": ["Oh. Okay. Night then."] }
+        ]
+      }
+    ]
   }
 };

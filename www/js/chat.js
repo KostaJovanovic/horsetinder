@@ -446,6 +446,9 @@
         else if (a.words.happy || yes) out.say(out.line("answer.mood.happy"), 2);
         else out.say(out.line("answer.mood.other"));
         return true;
+      case "scenario": // not one of the cards: keep waiting for one
+        mem.pending = p;
+        return false;
       default:
         return false;
     }
@@ -530,6 +533,21 @@
     mem.last = t;
 
     const ent = a.ents[0];
+
+    // A scenario card ("Chase it off"), before anything else reads its words as small talk
+    const card = mem.pending && mem.pending.type === "scenario" && pickCard(mem.pending.id, a.raw);
+    if (card) {
+      mem.pending = null;
+      playCard(m, out, card);
+      out.ask = false;
+      return finish(m, out, voice, me);
+    }
+    // "Let's play a game": the horse sets up a scenario
+    if (/\b(?:play (?:a )?game|let'?s play|game time|want to play)\b/.test(t) && !ent) {
+      if (!startScenario(m, out)) out.say(out.line("scenario.none"));
+      out.ask = false;
+      return finish(m, out, voice, me);
+    }
     const iLike = /\bi(?: really| totally| kinda| also| just| do)? (?:like|love|adore|enjoy|am into|'m into|am a fan of|'m a fan of|'m obsessed with|am obsessed with)\b/.test(t) ||
       /\b(?:is|are) my fav(?:ou?rite)?\b|\bmy fav(?:ou?rite)?(?: \w+)? (?:is|are)\b/.test(t);
     const iHate = /\bi(?: really| totally| kinda| just)? (?:hate|dislike|can't stand|don't like|do not like|am not into|'m not into)\b/.test(t);
@@ -686,7 +704,7 @@
       const hated = h.prefs && h.prefs.hatesInterest;
       const c = hated && CONCEPTS.filter(x => x.interest === hated)[0];
       const label = c ? c.label : hated && hated.toLowerCase();
-      if (!hated) out.say(out.line("hates.none"));
+      if (!hated) { out.noHates = true; out.say(out.line("hates.none")); }
       else if (m.vibe >= 55) { mem.revealedHate = true; learn(mem, "hates", label); out.say(out.line("hates.reveal", { x: label }), 2); }
       else out.say(out.line("hates.coy"));
       return finish(m, out, voice, me);
@@ -940,12 +958,88 @@
     return d.getTime();
   }
 
+  // ---------- Scenarios (content.js chat.scenarios) ----------
+  function scenarioById(id) { return (K.scenarios || []).filter(s => s.id === id)[0]; }
+
+  /* The horse sets up a scenario it hasn't played with you yet; its cards become the quick replies */
+  function startScenario(m, out) {
+    const mem = m.mem;
+    mem.scenarios = mem.scenarios || [];
+    const left = (K.scenarios || []).filter(s => mem.scenarios.indexOf(s.id) < 0 && s.cards && s.cards.length);
+    if (!left.length) return false;
+    const s = rnd(left);
+    mem.scenarios.push(s.id);
+    s.text.forEach(x => out.replies.push(out.fill(x)));
+    mem.pending = { type: "scenario", id: s.id };
+    return true;
+  }
+
+  /* The card you tapped, or typed near enough ("chase it" for "Chase it off") */
+  function pickCard(id, t) {
+    const s = scenarioById(id);
+    if (!s) return null;
+    const norm = x => x.toLowerCase().replace(/[‘’`]/g, "'").replace(/[^a-z0-9' ]/g, "").replace(/\s+/g, " ").trim();
+    const said = norm(t);
+    return s.cards.filter(c => {
+      const ct = norm(c.text);
+      return said === ct || (said.length >= 4 && (ct.indexOf(said) >= 0 || said.indexOf(ct) >= 0));
+    })[0] || null;
+  }
+
+  /* A card about something (about: a word group) lands by what this horse thinks of it,
+     so it can give away a secret love or hate; otherwise it's the card's own reply and vibe */
+  function playCard(m, out, card) {
+    const c = card.about && BY_ID[card.about], op = c && opinion(m.horse, c);
+    if (c && (op === "love" || op === "secret")) { learn(m.mem, "loves", c.label); out.say(out.line("scenario.love", { x: c.label }), 10, "♥"); }
+    else if (c && op === "hate") { learn(m.mem, "hates", c.label); out.say(out.line("scenario.hate", { x: c.label }), -8, "!?"); }
+    else {
+      const v = card.vibe || 0;
+      out.say(out.fill(rnd(card.reply)), v, v >= 6 ? "♥" : v <= -5 ? "!?" : null);
+    }
+    out.won = out.vibe > 0;
+  }
+
+  // ---------- Goals (labels in content.js chat.goals) ----------
+  const GOAL_IDS = ["hearts", "secret", "hate", "game", "smitten", "date"];
+
+  /* Marks goals this reply reached, and returns their labels for the chat log */
+  function checkGoals(m, out, me) {
+    const mem = m.mem, h = m.horse, p = h.prefs || {};
+    const done = mem.goals = mem.goals || {};
+    const learned = mem.learned || { loves: [], hates: [] };
+    const secrets = CONCEPTS.filter(c => c.interest && (p.lovesInterests || []).indexOf(c.interest) >= 0 && h.likes.indexOf(c.interest) < 0).map(c => c.label);
+    if (out.react === "♥") mem.hearts = (mem.hearts || 0) + 1;
+    const now = {
+      hearts: mem.hearts >= 5, secret: learned.loves.some(x => secrets.indexOf(x) >= 0),
+      hate: learned.hates.length > 0 || out.noHates, game: out.won, smitten: m.vibe >= 80, date: !!out.date,
+    };
+    const fresh = GOAL_IDS.filter(id => !done[id] && now[id] && K.goals && K.goals[id]);
+    fresh.forEach(id => { done[id] = true; });
+    return fresh.map(id => D.fill(K.goals[id], varsFor(m, me)));
+  }
+
+  /* The checklist for the horse's profile page: [{ text, done }] */
+  function goals(m, me) {
+    init(m, me);
+    if (m.horse.real || !K.goals) return [];
+    const done = m.mem.goals || {};
+    return GOAL_IDS.filter(id => K.goals[id]).map(id => ({ text: D.fill(K.goals[id], varsFor(m, me)), done: !!done[id] }));
+  }
+
   function finish(m, out, voice, me) {
     const mem = m.mem, h = m.horse;
     // A grumpy day makes good things count for less, a playful one for more
     const gain = moodOfDay(h).gain;
     if (out.vibe > 0 && typeof gain === "number") out.vibe = Math.round(out.vibe * gain);
+    // Good replies in a row build a combo: x1.5 from the third, x2 from the fifth. A bad one ends it.
+    if (out.vibe < 0) mem.combo = 0;
+    else if (out.vibe > 0) {
+      mem.combo = (mem.combo || 0) + 1;
+      out.combo = mem.combo >= 5 ? 2 : mem.combo >= 3 ? 1.5 : 1;
+      out.vibe = Math.round(out.vibe * out.combo);
+    }
     m.vibe = Math.max(0, Math.min(100, m.vibe + out.vibe));
+    out.goals = checkGoals(m, out, me);
     if (!out.unmatch && m.vibe <= 8) {
       out.unmatch = true;
       out.replies.push(out.line("unmatch.low"));
@@ -959,7 +1053,8 @@
     // Keep the conversation going with a question of its own, or something you said earlier
     if (!asked && !out.unmatch && out.ask !== false && !mem.pending) {
       if (out.ask === true ? chance(0.7) : chance(0.3)) {
-        const q = nextQuestion(m, me);
+        // Now and then a scenario instead of a question
+        const q = mem.turns >= 3 && chance(0.25) && startScenario(m, out) ? null : nextQuestion(m, me);
         if (q) out.replies.push(out.fill(q));
       } else if (mem.turns >= 4 && chance(0.15)) {
         const back = callback(m, out);
@@ -1028,6 +1123,8 @@
     init(m, me);
     const p = m.mem.pending;
     const chips = K.chips;
+    const s = p && p.type === "scenario" && scenarioById(p.id);
+    if (s) return s.cards.map(c => c.text);
     if (p) {
       if (p.type === "choice" && BY_ID[p.a] && BY_ID[p.b]) return chips.choice.map(c => D.fill(c, { a: BY_ID[p.a].label, b: BY_ID[p.b].label }));
       if (p.type !== "choice" && chips[p.type]) return chips[p.type].slice();
@@ -1068,7 +1165,7 @@
     mem.lastDate = mem.date;
     delete mem.date; delete mem.datePlace; delete mem.dateAt; delete mem.calEventId; delete mem.calWeb;
     const r = finish(m, out, voice, me);
-    return { replies: r.replies, vibe: r.vibe, unmatch: r.unmatch };
+    return { replies: r.replies, vibe: r.vibe, unmatch: r.unmatch, goals: r.goals, combo: r.combo };
   }
 
   /* A nudge when you leave the horse's question unanswered: only personalities that
@@ -1088,6 +1185,6 @@
 
   window.HorseChat = {
     init, respond, opener, suggestions, GIFTS, settings, upcoming, ghosting,
-    afterDate, nudge, moodStatus, typingSpeed,
+    afterDate, nudge, moodStatus, typingSpeed, goals,
   };
 })();

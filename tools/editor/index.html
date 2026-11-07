@@ -112,6 +112,8 @@ const SECTIONS = [
   { id: "questions", title: "Horse's questions", path: ["chat", "questions"], hint: "Questions the horse asks to keep the chat going. The type decides what counts as an answer; yes/no questions need a topic (about), choices need two (a, b), open takes any answer. then: the question to ask next after a yes / no (or a / b). followup: only asked as someone's then, never at random." },
   { id: "profileQuestions", title: "Questions about you", path: ["chat", "profileQuestions"], hint: "Asked about your own profile. needs: like (one of your interests, {yourLike}), disc ({yourDisc}), prompt (one of your answers, {yourQ} and {yourA}) or bio. Any answer counts." },
   { id: "stories", title: "Stories", path: ["chat", "stories"], hint: "Told when the horse has nothing to answer, each once. A horse tells stories about its own interests first (name a list after the interest), then \"disc\" (its discipline), then \"any\". Each story is a few bubbles." },
+  { id: "scenarios", title: "Scenarios", path: ["chat", "scenarios"], hint: "Little games: the horse sets up a situation (text, a few bubbles) and its cards become the quick replies. Each is played once per chat, now and then instead of a question, or when you say \"let's play a game\". A card's vibe and reply are what happens when you pick it. about (a word group) makes it depend on the horse: if it loves that thing it says a scenario.love reply (+10), if it hates it scenario.hate (−8), and either way you find out. Any card that gains vibe wins the \"game\" goal." },
+  { id: "goals", title: "Goals", path: ["chat", "goals"], hint: "The checklist on each horse's profile; the chat log says when one is done. Which goal is which is fixed in the code: hearts (5 heart reactions), secret (find a secret love), hate (find its hate, or that it has none), game (win a scenario), smitten (vibe 80), date (get a date). Empty one to hide it." },
   { id: "moods", title: "Moods and typing", paths: [["chat", "moods"], ["chat", "typingSpeed"], ["chat", "typos"]], hint: "Every horse gets one mood a day, picked by weight. gain multiplies the good vibe it gives, speed how slowly it types; status shows in the chat header. Its first reply that day uses the mood.<name>.first reply. typingSpeed is per personality (1 = normal, 2 = twice as slow); typos is the chance per message of a typo and its *correction." },
   { id: "nudges", title: "Nudges", path: ["chat", "nudges"], hint: "Sent once when you leave the horse's question unanswered for about half a minute with the chat open. Personalities without a list never nudge." },
   { id: "chips", title: "Quick replies", path: ["chat", "chips"], hint: "The buttons above the keyboard. One list per question type, \"any\" when nothing was asked, \"first\" for an empty chat. Tests check that every button answers its question." },
@@ -151,6 +153,7 @@ function enumFor(pat) {
     "chat.questions[].type": [QTYPES, true], "chat.questions[].about": [conceptIds(), true], "chat.questions[].a": [conceptIds(), true], "chat.questions[].b": [conceptIds(), true],
     "chat.concepts[].kind": [["food", "bad", "act", "word"], true], "chat.concepts[].interest": [data.interests, true],
     "chat.profileQuestions[].needs": [["like", "disc", "prompt", "bio"], true],
+    "chat.scenarios[].cards[].about": [conceptIds(), true],
     "breeds[].coats[]": [keys(A.COATS), true], "breeds[].patterns[]": [keys(A.PATTERNS), true], "breeds[].build": [keys(A.BUILDS), true],
     "breeds[].mane": [keys(A.MANES), true], "breeds[].disc[]": [data.disciplines, true],
   };
@@ -167,6 +170,7 @@ const OPTIONAL = {
   "horses[].talk": { greet: () => [""], snack: () => [""], ride: () => [""], lines: () => [""] },
   "chat.questions[]": { about: () => "mud", a: () => "gallop", b: () => "nap", then: () => ({ yes: data.chat.questions[0].id }), followup: () => true },
   "chat.concepts[]": { interest: () => data.interests[0], label: () => "" },
+  "chat.scenarios[].cards[]": { about: () => "mud" },
   "breeds[]": { build: () => "light", mane: () => "short", patterns: () => [], disc: () => [] },
 };
 const DESC = {
@@ -189,6 +193,7 @@ const DESC = {
   aboutMe: "\"Tell me about yourself\"", ate: "\"What did you eat today?\"", friends: "\"Who's your best friend?\"", family: "\"Do you have siblings?\"",
   same: "You say \"me too\" or \"same\"", ack: "You say \"ok\", \"cool\", \"nice\" (.waiting: it had asked you something)",
   huh: "\"Really?\" (.really), \"why?\" (.why), \"what do you mean?\" (.what)",
+  scenario: "Scenario cards (see Scenarios): .love / .hate when the card is about something it loves or hates ({x}), .none when it's out of games",
 };
 const PLACEHOLDERS = ["x", "word", "mine", "name", "age", "breed", "disc", "height", "food", "like1", "like2", "like3", "me", "nick", "dist",
   "coat", "date", "fact", "place", "when", "shared", "topic", "a", "b", "quote", "yourLike", "yourDisc", "yourQ", "yourA"];

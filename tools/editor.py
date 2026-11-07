@@ -71,6 +71,7 @@ def check(new, old):
     unique(new['horses'], 'horse')
     unique(new['chat']['concepts'], 'chat word group')
     unique(new['chat']['questions'], 'question')
+    unique(new['chat']['scenarios'], 'scenario')
     for key, pool in new['chat']['lines'].items():
         if not isinstance(pool, list):
             problems.append('Line "%s" must be a list.' % key)

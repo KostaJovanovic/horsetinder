@@ -1,3 +1,3 @@
 /* Stamped by save.bat on every commit, and read by android/app/build.gradle
    (versionCode = count, versionName = label). Keep the one-line shape. */
-window.HORSE_VERSION = { count: 7, label: "0.07" };
+window.HORSE_VERSION = { count: 8, label: "0.08" };

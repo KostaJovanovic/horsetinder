@@ -818,6 +818,7 @@ kbd {
   right: 0;
   margin-top: 3px;
   font: 500 0.75rem var(--mono);
+  white-space: nowrap;
   opacity: 0;
   pointer-events: none;
 }
@@ -887,6 +888,26 @@ kbd {
 .chat-gift.on { background: var(--leather); border-color: var(--leather); color: var(--surface); }
 .chat-gift:focus-visible { outline: 3px solid var(--hay); outline-offset: 2px; }
 .quick button.gift { border-color: var(--hay); }
+/* Scenario answers: cards, not pills */
+.quick button.play {
+  padding: 12px 14px;
+  border: 2px solid var(--hay);
+  border-radius: 12px;
+  box-shadow: 0 2px 0 var(--hay);
+  animation: pop 0.25s ease;
+}
+.sys.goal {
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--hay);
+  color: var(--ink);
+  font-weight: 700;
+  animation: pop 0.3s ease;
+}
+.goals { margin: 0; padding: 0; list-style: none; }
+.goals li { display: flex; align-items: center; padding: 6px 0; color: var(--muted); }
+.goals li span[aria-hidden] { flex: none; width: 24px; color: var(--hay); font-size: 1.1rem; }
+.goals li.done { color: var(--ink); font-weight: 600; }
 
 .sys.cal {
   padding: 6px 14px;
